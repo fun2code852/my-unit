@@ -8,6 +8,10 @@ const YAHOO_HOSTS = [
 const FX_URL = "https://api.frankfurter.dev/v1/latest?from=USD";
 const YAHOO_ALARM = "uce-yahoo";
 const FX_ALARM = "uce-fx";
+const SCRIPT_ID = "uce";
+const PAGE_ORIGINS = ["http://*/*", "https://*/*"];
+const CONTENT_JS = ["lib/currencies.js", "lib/parse.js", "lib/convert.js", "content.js"];
+const CONTENT_CSS = ["content.css"];
 
 const DEFAULT_STATE = {
   unit: null,
@@ -36,17 +40,60 @@ async function savePartial(patch) {
   await chrome.storage.local.set(patch);
 }
 
-async function fetchFx() {
+function unitReady(unit) {
+  if (!unit || !unit.currency) return false;
+  if (unit.type === "currency") return true;
+  return Number(unit.price) > 0;
+}
+
+async function fetchFrankfurter() {
   const res = await fetch(FX_URL, { cache: "no-store", credentials: "omit" });
   if (!res.ok) throw new Error(`FX HTTP ${res.status}`);
   const data = await res.json();
   if (!data || data.base !== "USD" || !data.rates) throw new Error("FX payload");
-  const fx = {
+  return {
     base: "USD",
     date: data.date,
-    rates: data.rates,
+    rates: { ...data.rates },
     fetchedAt: Date.now(),
+    yahooCodes: [],
   };
+}
+
+function emptyFx() {
+  return { base: "USD", date: null, rates: {}, fetchedAt: Date.now(), yahooCodes: [] };
+}
+
+async function fillYahooGaps(fx) {
+  const missing = UCE.missingFxCodes(fx);
+  if (!missing.length) return fx;
+  const rates = { ...(fx.rates || {}) };
+  const yahooCodes = [...(fx.yahooCodes || [])];
+  await Promise.all(
+    missing.map(async (code) => {
+      try {
+        const quote = await fetchYahoo(`${code}=X`);
+        if (!Number.isFinite(quote.price) || quote.price <= 0) return;
+        rates[code] = quote.price;
+        if (!yahooCodes.includes(code)) yahooCodes.push(code);
+      } catch (err) {
+        console.warn("UCE Yahoo FX", code, err);
+      }
+    }),
+  );
+  return { ...fx, rates, yahooCodes };
+}
+
+async function refreshFx() {
+  const state = await getState();
+  let fx;
+  try {
+    fx = await fetchFrankfurter();
+  } catch (err) {
+    console.warn("UCE FX fetch failed", err);
+    fx = state.fx ? { ...state.fx, rates: { ...(state.fx.rates || {}) } } : emptyFx();
+  }
+  fx = await fillYahooGaps(fx);
   await savePartial({ fx });
   return fx;
 }
@@ -105,18 +152,133 @@ async function refreshYahooIfNeeded() {
 async function ensureFx() {
   const state = await getState();
   const age = state.fx?.fetchedAt ? Date.now() - state.fx.fetchedAt : Infinity;
-  if (state.fx && age < 20 * 60 * 60 * 1000) return state.fx;
-  try {
-    return await fetchFx();
-  } catch (err) {
-    console.warn("UCE FX fetch failed", err);
-    return state.fx;
+  const missing = UCE.missingFxCodes(state.fx);
+  if (state.fx && age < 20 * 60 * 60 * 1000 && !missing.length) return state.fx;
+  if (state.fx && age < 20 * 60 * 60 * 1000 && missing.length) {
+    const fx = await fillYahooGaps(state.fx);
+    await savePartial({ fx });
+    return fx;
+  }
+  return refreshFx();
+}
+
+async function syncAlarms() {
+  chrome.alarms.create(FX_ALARM, { periodInMinutes: 60 * 12 });
+  const state = await getState();
+  if (state.unit?.type === "yahoo" && state.unit.symbol) {
+    chrome.alarms.create(YAHOO_ALARM, { periodInMinutes: 15 });
+  } else {
+    await chrome.alarms.clear(YAHOO_ALARM);
   }
 }
 
-function ensureAlarms() {
-  chrome.alarms.create(YAHOO_ALARM, { periodInMinutes: 15 });
-  chrome.alarms.create(FX_ALARM, { periodInMinutes: 60 * 12 });
+async function hasPageAccess() {
+  return chrome.permissions.contains({ origins: PAGE_ORIGINS });
+}
+
+async function registered() {
+  try {
+    const scripts = await chrome.scripting.getRegisteredContentScripts({ ids: [SCRIPT_ID] });
+    return scripts.some((script) => script.id === SCRIPT_ID);
+  } catch {
+    return false;
+  }
+}
+
+async function tabHasScript(tabId) {
+  try {
+    await chrome.tabs.sendMessage(tabId, { action: "ping" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const injectLocks = new Map();
+
+async function injectTab(tabId) {
+  const existing = injectLocks.get(tabId);
+  if (existing) return existing;
+  const job = (async () => {
+    if (await tabHasScript(tabId)) return;
+    await chrome.scripting.insertCSS({ target: { tabId }, files: CONTENT_CSS });
+    await chrome.scripting.executeScript({ target: { tabId }, files: CONTENT_JS });
+  })().finally(() => {
+    if (injectLocks.get(tabId) === job) injectLocks.delete(tabId);
+  });
+  injectLocks.set(tabId, job);
+  return job;
+}
+
+async function httpTabs() {
+  try {
+    return await chrome.tabs.query({ url: PAGE_ORIGINS });
+  } catch {
+    return [];
+  }
+}
+
+async function injectOpenTabs() {
+  const tabs = await httpTabs();
+  await Promise.all(
+    tabs.map(async (tab) => {
+      if (!tab.id) return;
+      try {
+        await injectTab(tab.id);
+      } catch (err) {
+        console.warn("UCE inject", tab.id, err);
+      }
+    }),
+  );
+}
+
+async function teardownOpenTabs() {
+  const tabs = await httpTabs();
+  await Promise.all(
+    tabs.map(async (tab) => {
+      if (!tab.id) return;
+      try {
+        await chrome.tabs.sendMessage(tab.id, { action: "teardown" });
+      } catch {
+        /* tab has no script */
+      }
+    }),
+  );
+}
+
+async function syncContentScripts() {
+  const state = await getState();
+  const granted = await hasPageAccess();
+  const want = unitReady(state.unit) && granted;
+  const isRegistered = await registered();
+
+  if (want && !isRegistered) {
+    try {
+      await chrome.scripting.registerContentScripts([
+        {
+          id: SCRIPT_ID,
+          matches: PAGE_ORIGINS,
+          js: CONTENT_JS,
+          css: CONTENT_CSS,
+          runAt: "document_idle",
+          persistAcrossSessions: true,
+        },
+      ]);
+    } catch (err) {
+      console.warn("UCE registerContentScripts", err);
+    }
+  }
+
+  if (want) await injectOpenTabs();
+
+  if (!want && isRegistered) {
+    try {
+      await chrome.scripting.unregisterContentScripts({ ids: [SCRIPT_ID] });
+    } catch (err) {
+      console.warn("UCE unregisterContentScripts", err);
+    }
+    await teardownOpenTabs();
+  }
 }
 
 const MENU_ID = "uce-convert";
@@ -142,33 +304,53 @@ chrome.runtime.onInstalled.addListener(async () => {
   const state = await getState();
   if (!state.defaultDollar) await savePartial({ defaultDollar: UCE.DEFAULT_DOLLAR_CURRENCY });
   if (!state.defaultYen) await savePartial({ defaultYen: UCE.DEFAULT_YEN_CURRENCY });
-  ensureAlarms();
+  await syncAlarms();
   ensureFx();
   ensureContextMenu();
+  syncContentScripts();
 });
 
-ensureAlarms();
+syncAlarms();
 ensureFx();
 ensureContextMenu();
+syncContentScripts();
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === YAHOO_ALARM) refreshYahooIfNeeded();
-  if (alarm.name === FX_ALARM) fetchFx().catch(() => {});
+  if (alarm.name === FX_ALARM) refreshFx().catch(() => {});
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.unit) ensureContextMenu();
+  if (area !== "local") return;
+  if (changes.unit) {
+    ensureContextMenu();
+    syncAlarms();
+    syncContentScripts();
+  }
+});
+
+chrome.permissions.onAdded.addListener(() => {
+  syncContentScripts();
+});
+
+chrome.permissions.onRemoved.addListener(() => {
+  syncContentScripts();
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== MENU_ID || !tab?.id) return;
+  const payload = { action: "convertSelection", text: info.selectionText || "" };
   try {
-    await chrome.tabs.sendMessage(tab.id, {
-      action: "convertSelection",
-      text: info.selectionText || "",
-    });
+    await chrome.tabs.sendMessage(tab.id, payload);
+    return;
   } catch {
-    // No content script on this page (chrome://, PDF, …).
+    /* inject then retry — activeTab covers this user gesture */
+  }
+  try {
+    await injectTab(tab.id);
+    await chrome.tabs.sendMessage(tab.id, payload);
+  } catch {
+    // chrome://, PDF, or inject denied
   }
 });
 
@@ -185,6 +367,10 @@ async function handleMessage(message) {
     ensureFx();
     return { state: await getState() };
   }
+  if (action === "syncInject") {
+    await syncContentScripts();
+    return { ok: true };
+  }
   if (action === "setCustomUnit") {
     const name = String(message.name || "").trim();
     const price = Number(message.price);
@@ -195,7 +381,7 @@ async function handleMessage(message) {
     await savePartial({ unit });
     return { unit };
   }
-    if (action === "validateYahoo") {
+  if (action === "validateYahoo") {
     const unit = await fetchYahoo(message.symbol);
     await savePartial({ unit });
     return { unit };
@@ -262,7 +448,7 @@ async function handleMessage(message) {
     return { pausedHosts, paused: paused.has(host) };
   }
   if (action === "refreshNow") {
-    await fetchFx().catch(() => {});
+    await refreshFx().catch(() => {});
     await refreshYahooIfNeeded();
     return { state: await getState() };
   }

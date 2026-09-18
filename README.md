@@ -2,15 +2,14 @@
 
 Chrome extension (Manifest V3): hover a detected price and see it in **one** unit — a custom item (ramen + price) or a [Yahoo Finance](https://finance.yahoo.com) ticker (`AAPL`, `0700.HK`, `BTC-USD`).
 
-This is v0, load-unpacked. UI polish is later.
+This is v0, load-unpacked.
 
 ## What it does
 
-- Finds prices that already include a currency signal (`HK$310.00`, `$ 43.00`, `HKD 78.37`). Bare numbers are ignored.
-- Amazon uses the `.a-price` widget (same idea as [Opportunity Cost](https://github.com/TFTC-Holdings-Inc/opportunity-cost); reimplemented, not copied). CSS `line-through` and Amazon list-price widgets (`data-a-strike`, `a-text-price`) are skipped.
-- Dotted underline, tooltip on hover. Select a price and right-click **Convert to …** for the same tooltip. Original price stays on the page.
-- Live units poll Yahoo’s unofficial `v8/chart` endpoint every 15 minutes. The **Currency** tab (and custom/stock crosses) use [Frankfurter](https://frankfurter.dev) (ECB, daily). Nothing from the page is uploaded.
-- Inactive until you save a unit in the popup. Per-site pause is a toggle in the popup.
+- Finds prices that already include a currency signal (`HK$310.00`, `$ 43.00`, `HKD 78.37`). Bare numbers are ignored. Text prices are underlined with the CSS Highlight API (the page DOM is not wrapped). Amazon uses the `.a-price` widget (same idea as [Opportunity Cost](https://github.com/TFTC-Holdings-Inc/opportunity-cost); reimplemented, not copied). CSS `line-through` and Amazon list-price widgets (`data-a-strike`, `a-text-price`) are skipped.
+- Dotted underline, tooltip on hover. Select a price and right-click **Convert to …** for the same tooltip. Original price stays on the page. Changing the unit or pausing a site does not reload tabs.
+- Live units poll Yahoo’s `v8/chart` endpoint every 15 minutes (only while a ticker is saved). FX is [Frankfurter](https://frankfurter.dev) (ECB, daily); currencies ECB omits (TWD) fall back to Yahoo `TWD=X`. Nothing from the page is uploaded.
+- Inactive until you save a unit. Saving asks Chrome for website access so pages can be underlined. Per-site pause is a toggle in the popup. Right-click Convert still works on the current tab via the toolbar click.
 
 Yahoo quotes are unofficial, often delayed, and can break without notice. Custom units still work if Yahoo dies. Default bare `$` is **HKD**.
 
@@ -20,7 +19,8 @@ Yahoo quotes are unofficial, often delayed, and can break without notice. Custom
 2. Enable **Developer mode**
 3. **Load unpacked** → this folder
 4. Pin **My Unit**, set a custom unit or validate a ticker
-5. Open the dogfood pages below
+5. Allow website access when Chrome asks
+6. Open the dogfood pages below
 
 ## v0 dogfood
 
