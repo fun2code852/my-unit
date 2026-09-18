@@ -12,6 +12,8 @@ const customCurrency = document.getElementById("custom-currency");
 const displayCurrency = document.getElementById("display-currency");
 const clearUnitBtn = document.getElementById("clear-unit");
 
+const PAGE_ORIGINS = ["http://*/*", "https://*/*"];
+
 let currentHost = "";
 let state = null;
 let tabSynced = false;
@@ -22,8 +24,14 @@ function describeCurrency(code) {
   return `${meta.flag} ${code} · ${meta.symbol}`;
 }
 
-function fillSelect(select, codes) {
+function fillSelect(select, codes, blank) {
   select.innerHTML = "";
+  if (blank) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = blank;
+    select.appendChild(opt);
+  }
   for (const code of codes || UCE.ISO_CODES) {
     const opt = document.createElement("option");
     opt.value = code;
@@ -57,13 +65,32 @@ function paintSymbolSettings() {
   siteYen.classList.toggle("is-overridden", Boolean(yenOverride));
 }
 
+function paintUnitFields(unit) {
+  const isCustom = unit?.type === "custom";
+  const isYahoo = unit?.type === "yahoo";
+  const isCurrency = unit?.type === "currency";
+  document.getElementById("custom-name").value = isCustom ? unit.name || "" : "";
+  document.getElementById("custom-price").value = isCustom ? unit.price ?? "" : "";
+  customCurrency.value = isCustom && unit.currency ? unit.currency : "";
+  document.getElementById("yahoo-symbol").value = isYahoo ? unit.symbol || "" : "";
+  displayCurrency.value = isCurrency && unit.currency ? unit.currency : "";
+}
+
+const TABS = [
+  ["tab-custom", "custom-form", "custom"],
+  ["tab-yahoo", "yahoo-form", "yahoo"],
+  ["tab-currency", "currency-form", "currency"],
+];
+
 function setTab(name) {
-  document.getElementById("tab-custom").classList.toggle("is-on", name === "custom");
-  document.getElementById("tab-yahoo").classList.toggle("is-on", name === "yahoo");
-  document.getElementById("tab-currency").classList.toggle("is-on", name === "currency");
-  customForm.hidden = name !== "custom";
-  yahooForm.hidden = name !== "yahoo";
-  currencyForm.hidden = name !== "currency";
+  for (const [tabId, panelId, key] of TABS) {
+    const on = name === key;
+    const btn = document.getElementById(tabId);
+    btn.classList.toggle("is-on", on);
+    btn.setAttribute("aria-selected", on ? "true" : "false");
+    btn.tabIndex = on ? 0 : -1;
+    document.getElementById(panelId).hidden = !on;
+  }
 }
 
 function tabForUnit(unit) {
@@ -125,6 +152,19 @@ async function activeHost() {
   }
 }
 
+async function ensurePageAccess() {
+  try {
+    const have = await chrome.permissions.contains({ origins: PAGE_ORIGINS });
+    if (!have) {
+      const ok = await chrome.permissions.request({ origins: PAGE_ORIGINS });
+      if (!ok) return;
+    }
+    await chrome.runtime.sendMessage({ action: "syncInject" });
+  } catch (err) {
+    console.warn("UCE permission", err);
+  }
+}
+
 async function refresh() {
   const res = await chrome.runtime.sendMessage({ action: "getState" });
   if (res?.error) {
@@ -133,7 +173,7 @@ async function refresh() {
   }
   state = res.state;
   paintStatus(state.unit);
-  if (state.unit?.type === "currency") displayCurrency.value = state.unit.currency;
+  paintUnitFields(state.unit);
   currentHost = await activeHost();
   paintSymbolSettings();
   const paused = currentHost && state.pausedHosts.includes(currentHost);
@@ -160,6 +200,7 @@ customForm.addEventListener("submit", async (event) => {
   paintStatus(res.unit, res.error);
   if (!res.error) {
     setTab("custom");
+    await ensurePageAccess();
     refresh();
   }
 });
@@ -174,6 +215,7 @@ yahooForm.addEventListener("submit", async (event) => {
   paintStatus(res.unit, res.error);
   if (!res.error) {
     setTab("yahoo");
+    await ensurePageAccess();
     refresh();
   }
 });
@@ -187,6 +229,7 @@ currencyForm.addEventListener("submit", async (event) => {
   paintStatus(res.unit, res.error);
   if (!res.error) {
     setTab("currency");
+    await ensurePageAccess();
     refresh();
   }
 });
@@ -224,10 +267,8 @@ clearUnitBtn.addEventListener("click", async () => {
   refresh();
 });
 
-fillSelect(customCurrency);
-fillSelect(displayCurrency);
+fillSelect(customCurrency, null, "Select");
+fillSelect(displayCurrency, null, "Select");
 fillSelect(siteDollar, UCE.DOLLAR_CODES);
 fillSelect(siteYen, UCE.YEN_CODES);
-customCurrency.value = "HKD";
-displayCurrency.value = "JPY";
 refresh();

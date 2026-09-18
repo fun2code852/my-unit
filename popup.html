@@ -8,7 +8,7 @@
   </head>
   <body>
     <header>
-      <p class="lede">Hover a price, or select one and right-click Convert. Inactive until you save a unit.</p>
+      <p class="lede">Hover a price, or right-click Convert. Save a unit to start.</p>
     </header>
 
     <section id="status" class="card unit-card">
@@ -19,34 +19,32 @@
       <button type="button" id="clear-unit" class="clear-btn" hidden>Clear</button>
     </section>
 
-    <nav class="tabs" role="tablist">
-      <button type="button" id="tab-custom" class="tab is-on" data-tab="custom">Custom</button>
-      <button type="button" id="tab-yahoo" class="tab" data-tab="yahoo">Finance</button>
-      <button type="button" id="tab-currency" class="tab" data-tab="currency">Currency</button>
+    <nav class="tabs" role="tablist" aria-label="Unit type">
+      <button type="button" id="tab-custom" class="tab is-on" role="tab" aria-selected="true" aria-controls="custom-form" data-tab="custom">Custom</button>
+      <button type="button" id="tab-yahoo" class="tab" role="tab" aria-selected="false" aria-controls="yahoo-form" tabindex="-1" data-tab="yahoo">Finance</button>
+      <button type="button" id="tab-currency" class="tab" role="tab" aria-selected="false" aria-controls="currency-form" tabindex="-1" data-tab="currency">Currency</button>
     </nav>
 
-    <form id="custom-form" class="card panel">
-      <label>Name <input id="custom-name" type="text" placeholder="🍜 · ☕️ · one day spending" required /></label>
+    <form id="custom-form" class="card panel" role="tabpanel" aria-labelledby="tab-custom">
+      <label>Name <input id="custom-name" type="text" placeholder="ramen · coffee · one day spending" required /></label>
       <label>
         Currency
-        <select id="custom-currency"></select>
+        <select id="custom-currency" required></select>
       </label>
-      <label>Price <input id="custom-price" type="number" min="0" step="any" placeholder="50" required /></label>
+      <label>Price <input id="custom-price" type="number" min="0.01" step="any" placeholder="50" required /></label>
       <button type="submit">Save</button>
     </form>
 
-    <form id="yahoo-form" class="card panel" hidden>
+    <form id="yahoo-form" class="card panel" role="tabpanel" aria-labelledby="tab-yahoo" hidden>
       <label>Yahoo ticker <input id="yahoo-symbol" type="text" placeholder="0700.HK" required /></label>
-      <p class="hint">AAPL, 0700.HK, BTC-USD. Delayed unofficial quotes.</p>
       <button type="submit">Validate &amp; Save</button>
     </form>
 
-    <form id="currency-form" class="card panel" hidden>
+    <form id="currency-form" class="card panel" role="tabpanel" aria-labelledby="tab-currency" hidden>
       <label>
         Show prices in
-        <select id="display-currency"></select>
+        <select id="display-currency" required></select>
       </label>
-      <p class="hint">Daily ECB rate. Same FX as custom items.</p>
       <button type="submit">Save</button>
     </form>
 
@@ -54,19 +52,19 @@
       <p id="site-host" class="site-host">Open a normal page first</p>
       <label class="symbol-field">
         <span class="sym">$</span>
-        <select id="site-dollar"></select>
+        <select id="site-dollar" aria-label="$ on this site"></select>
       </label>
       <label class="symbol-field">
         <span class="sym">¥</span>
-        <select id="site-yen"></select>
+        <select id="site-yen" aria-label="¥ on this site"></select>
       </label>
       <label class="switch-row">
         <span>Convert on this site</span>
-        <input id="pause-btn" type="checkbox" role="switch" />
+        <input id="pause-btn" type="checkbox" role="switch" aria-label="Convert on this site" />
       </label>
     </section>
 
-    <p class="foot">Quotes: Yahoo Finance (unofficial) · FX: Frankfurter / ECB</p>
+    <p class="foot">Quote: Yahoo Finance ~15 min delay<br />FX: Frankfurter (ECB), Fallback Yahoo</p>
     <script src="lib/currencies.js"></script>
     <script src="lib/convert.js"></script>
     <script src="popup.js"></script>

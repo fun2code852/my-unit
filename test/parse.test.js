@@ -152,12 +152,25 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
   const yen = convertToUnit(4599, "HKD", unit, fx);
   assert(Math.abs(yen - (4599 / 7.8) * 147) < 1e-6, "currency tab HKD → JPY");
   assertEq(convertToUnit(100, "JPY", unit, fx), 100, "currency tab same currency");
+  assertEq(convertToUnit(310, "TWD", unit, fx), null, "TWD without a rate is no FX");
+  const withTwd = { base: "USD", rates: { HKD: 7.8, JPY: 147, TWD: 32 } };
+  const twdToYen = convertToUnit(320, "TWD", unit, withTwd);
+  assert(Math.abs(twdToYen - (320 / 32) * 147) < 1e-6, "TWD via Yahoo-filled rate → JPY");
+}
+
+{
+  assertEq(UCE.missingFxCodes({ base: "USD", rates: { HKD: 7.8, JPY: 147 } }).includes("TWD"), true, "TWD missing from ECB snapshot");
+  assertEq(UCE.missingFxCodes({ base: "USD", rates: { TWD: 32 } }).includes("TWD"), false, "TWD present after Yahoo fill");
+  assertEq(UCE.missingFxCodes({ base: "USD", rates: { TWD: 32 } }).includes("USD"), false, "USD is the base");
 }
 
 {
   assertEq(formatCount(3), "3", "format 3");
   assertEq(formatCount(3.04), "3.04", "format 3.04");
   assert(formatCount(0.15) === "0.15", "format 0.15");
+  assertEq(formatCount(0.0012), "0.0012", "small count keeps digits");
+  assertEq(formatCount(0.00024), "0.00024", "BTC-scale count");
+  assertEq(formatCount(0.01), "0.01", "format 0.01");
 }
 
 console.log("ok", parseNumber("1,199.00"));

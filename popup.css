@@ -1,11 +1,13 @@
 :root {
-  color-scheme: light;
-  --bg: #fff;
-  --card: #fff;
-  --ink: #000;
-  --muted: #5c5854;
-  --line: #ddd8d2;
+  color-scheme: light dark;
+  --bg: light-dark(#fff, #1c1b1a);
+  --card: light-dark(#fff, #1c1b1a);
+  --ink: light-dark(#000, #f2f0ed);
+  --muted: light-dark(#5c5854, #a8a29c);
+  --line: light-dark(#ddd8d2, #3f3c39);
   --accent: #c54546;
+  --field: light-dark(#fff, #2a2826);
+  --switch: light-dark(#d8d4d0, #4a4642);
 }
 
 * {
@@ -20,13 +22,13 @@ body {
   color: var(--ink);
   font-size: 13px;
   line-height: 1.4;
-  font-family: HelveticaNeueCustom, sans-serif !important;
+  font-family: HelveticaNeueCustom, "Helvetica Neue", Helvetica, sans-serif;
 }
 
 button,
 input,
 select {
-  font-family: HelveticaNeueCustom, sans-serif !important;
+  font-family: HelveticaNeueCustom, "Helvetica Neue", Helvetica, sans-serif;
   color: var(--ink);
 }
 
@@ -97,13 +99,14 @@ select {
   padding: 6px 8px;
   border-radius: 6px;
   border: 1px solid var(--line);
-  background: #fff;
-  color: #000;
+  background: var(--field);
+  color: var(--ink);
 }
 
 .foot {
   margin: 0;
   font-size: 11px;
+  line-height: 1.45;
 }
 
 .unit-card {
@@ -149,7 +152,7 @@ select {
   margin: 0;
   padding: 6px 10px;
   border: 1px solid var(--accent);
-  background: #fff;
+  background: var(--card);
   color: var(--accent);
   font-size: 12px;
 }
@@ -212,7 +215,7 @@ select {
   flex-shrink: 0;
   border-radius: 999px;
   border: none;
-  background: #d8d4d0;
+  background: var(--switch);
   cursor: pointer;
   position: relative;
 }
@@ -226,7 +229,6 @@ select {
   height: 18px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .switch-row input[type="checkbox"]:checked {
