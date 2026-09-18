@@ -1,0 +1,38 @@
+.uce-price {
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+/* Amazon splits the price into nested spans; decoration on .a-price never paints. */
+.a-price.uce-price {
+  text-decoration: none;
+}
+
+.uce-amazon-mark,
+.uce-split-mark {
+  border-bottom: 1px dotted currentColor !important;
+  padding-bottom: 1px;
+}
+
+.uce-split.uce-price {
+  text-decoration: none;
+  cursor: help;
+}
+
+.uce-tooltip {
+  position: fixed;
+  z-index: 2147483646;
+  max-width: 280px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #c54546;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.35;
+  font-family: HelveticaNeueCustom, sans-serif !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  overflow-wrap: anywhere;
+}
