@@ -16,8 +16,6 @@ Paste these into the Developer Dashboard. Upload the PNGs. Site shots are from l
 
 Marquee 1400×560 and a YouTube video are optional.
 
-Regenerate the tile with `python3 scripts/make-store-images.py`. Recapture the popup shots with `node scripts/capture-popup.mjs`.
-
 ## Privacy policy URL
 
 https://github.com/fun2code852/my-unit/blob/main/PRIVACY.md
