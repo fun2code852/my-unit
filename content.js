@@ -182,7 +182,7 @@ function refreshOpenTooltip() {
   showTooltipAtRect(hoverPayload.getRect(), conversionText(hoverPayload.amount, hoverPayload.currency));
 }
 
-const MARK_SEL = ".uce-price, .uce-amazon-mark, .uce-split-mark, .uce-split";
+const MARK_SEL = ".uce-price, .uce-amazon-mark, .uce-split";
 
 function markPrice(el, amount, currency) {
   el.classList.add("uce-price");
@@ -192,7 +192,7 @@ function markPrice(el, amount, currency) {
 }
 
 function unmarkOne(el) {
-  el.classList.remove("uce-price", "uce-amazon-mark", "uce-split-mark", "uce-split");
+  el.classList.remove("uce-price", "uce-amazon-mark", "uce-split");
   delete el.dataset.uceAmount;
   delete el.dataset.uceCurrency;
   delete el.dataset.uceBound;

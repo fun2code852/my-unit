@@ -398,18 +398,6 @@ async function handleMessage(message) {
     await savePartial({ unit: null });
     return { ok: true };
   }
-  if (action === "setDefaultDollar") {
-    const code = String(message.currency || "").toUpperCase();
-    if (!UCE.DOLLAR_CODES.includes(code)) throw new Error(chrome.i18n.getMessage("errUnsupportedCurrency"));
-    await savePartial({ defaultDollar: code });
-    return { defaultDollar: code };
-  }
-  if (action === "setDefaultYen") {
-    const code = String(message.currency || "").toUpperCase();
-    if (!UCE.YEN_CODES.includes(code)) throw new Error(chrome.i18n.getMessage("errUnsupportedCurrency"));
-    await savePartial({ defaultYen: code });
-    return { defaultYen: code };
-  }
   if (action === "setOverride") {
     const host = UCE.canonicalHost(String(message.host || "").trim());
     const state = await getState();
@@ -454,11 +442,6 @@ async function handleMessage(message) {
     const pausedHosts = [...paused];
     await savePartial({ pausedHosts });
     return { pausedHosts, paused: paused.has(host) };
-  }
-  if (action === "refreshNow") {
-    await refreshFx().catch(() => {});
-    await refreshYahooIfNeeded();
-    return { state: await getState() };
   }
   throw new Error(chrome.i18n.getMessage("errUnknownAction"));
 }
