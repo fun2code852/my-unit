@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "My Unit",
-  "version": "0.1.0",
-  "description": "Hover webpage prices to see them in one favourite unit — a custom item or a Yahoo Finance symbol.",
+  "default_locale": "en",
+  "name": "__MSG_extName__",
+  "version": "1.0.0",
+  "description": "__MSG_extDescription__",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "My Unit",
+    "default_title": "__MSG_extTitle__",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",

@@ -100,8 +100,8 @@ async function refreshFx() {
 
 async function fetchYahoo(symbol) {
   const encoded = encodeURIComponent(String(symbol || "").trim());
-  if (!encoded) throw new Error("Empty symbol");
-  let lastError = "Yahoo unreachable";
+  if (!encoded) throw new Error(chrome.i18n.getMessage("errEmptySymbol"));
+  let lastError = chrome.i18n.getMessage("errYahooUnreachable");
   for (const host of YAHOO_HOSTS) {
     try {
       const res = await fetch(`${host}${encoded}?range=5d&interval=1d`, {
@@ -110,7 +110,7 @@ async function fetchYahoo(symbol) {
         referrerPolicy: "no-referrer",
       });
       if (!res.ok) {
-        lastError = `Yahoo HTTP ${res.status}`;
+        lastError = chrome.i18n.getMessage("errYahooHttp", [String(res.status)]);
         continue;
       }
       const data = await res.json();
@@ -118,7 +118,7 @@ async function fetchYahoo(symbol) {
       const price = meta?.regularMarketPrice;
       const currency = meta?.currency;
       if (!Number.isFinite(price) || price <= 0 || !currency) {
-        lastError = "Yahoo had no price";
+        lastError = chrome.i18n.getMessage("errYahooNoPrice");
         continue;
       }
       return {
@@ -131,8 +131,8 @@ async function fetchYahoo(symbol) {
         priceHint: meta.priceHint,
         asOf: meta.regularMarketTime ? meta.regularMarketTime * 1000 : Date.now(),
       };
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : String(err);
+    } catch {
+      lastError = chrome.i18n.getMessage("errYahooUnreachable");
     }
   }
   throw new Error(lastError);
@@ -284,10 +284,10 @@ async function syncContentScripts() {
 const MENU_ID = "uce-convert";
 
 function menuTitle(unit) {
-  if (!unit) return "Convert with My Unit";
-  if (unit.type === "currency") return `Convert to ${unit.currency}`;
-  const name = unit.name || unit.symbol || "My Unit";
-  return `Convert to ${name}`;
+  if (!unit) return chrome.i18n.getMessage("menuConvertMyUnit");
+  if (unit.type === "currency") return chrome.i18n.getMessage("menuConvertTo", [unit.currency]);
+  const name = unit.name || unit.symbol || chrome.i18n.getMessage("extName");
+  return chrome.i18n.getMessage("menuConvertTo", [name]);
 }
 
 async function ensureContextMenu() {
@@ -375,8 +375,8 @@ async function handleMessage(message) {
     const name = String(message.name || "").trim();
     const price = Number(message.price);
     const currency = String(message.currency || "").toUpperCase();
-    if (!name || !Number.isFinite(price) || price <= 0) throw new Error("Need a name and a price > 0");
-    if (!UCE.ISO_CODES.includes(currency)) throw new Error("Unsupported currency");
+    if (!name || !Number.isFinite(price) || price <= 0) throw new Error(chrome.i18n.getMessage("errNeedNamePrice"));
+    if (!UCE.ISO_CODES.includes(currency)) throw new Error(chrome.i18n.getMessage("errUnsupportedCurrency"));
     const unit = { type: "custom", name, price, currency };
     await savePartial({ unit });
     return { unit };
@@ -388,7 +388,7 @@ async function handleMessage(message) {
   }
   if (action === "setCurrencyUnit") {
     const currency = String(message.currency || "").toUpperCase();
-    if (!UCE.ISO_CODES.includes(currency)) throw new Error("Unsupported currency");
+    if (!UCE.ISO_CODES.includes(currency)) throw new Error(chrome.i18n.getMessage("errUnsupportedCurrency"));
     const meta = UCE.CURRENCY_META[currency];
     const unit = { type: "currency", currency, name: currency, symbol: meta?.symbol || currency };
     await savePartial({ unit });
@@ -400,13 +400,13 @@ async function handleMessage(message) {
   }
   if (action === "setDefaultDollar") {
     const code = String(message.currency || "").toUpperCase();
-    if (!UCE.DOLLAR_CODES.includes(code)) throw new Error("Unsupported currency");
+    if (!UCE.DOLLAR_CODES.includes(code)) throw new Error(chrome.i18n.getMessage("errUnsupportedCurrency"));
     await savePartial({ defaultDollar: code });
     return { defaultDollar: code };
   }
   if (action === "setDefaultYen") {
     const code = String(message.currency || "").toUpperCase();
-    if (!UCE.YEN_CODES.includes(code)) throw new Error("Unsupported currency");
+    if (!UCE.YEN_CODES.includes(code)) throw new Error(chrome.i18n.getMessage("errUnsupportedCurrency"));
     await savePartial({ defaultYen: code });
     return { defaultYen: code };
   }
@@ -417,7 +417,7 @@ async function handleMessage(message) {
     if (!message.currency) delete overrides[host];
     else {
       const code = String(message.currency).toUpperCase();
-      if (!UCE.DOLLAR_CODES.includes(code)) throw new Error("Unsupported currency");
+      if (!UCE.DOLLAR_CODES.includes(code)) throw new Error(chrome.i18n.getMessage("errUnsupportedCurrency"));
       overrides[host] = code;
     }
     await savePartial({ overrides });
@@ -430,7 +430,7 @@ async function handleMessage(message) {
     if (!message.currency) delete yenOverrides[host];
     else {
       const code = String(message.currency).toUpperCase();
-      if (!UCE.YEN_CODES.includes(code)) throw new Error("Unsupported currency");
+      if (!UCE.YEN_CODES.includes(code)) throw new Error(chrome.i18n.getMessage("errUnsupportedCurrency"));
       yenOverrides[host] = code;
     }
     await savePartial({ yenOverrides });
@@ -438,7 +438,7 @@ async function handleMessage(message) {
   }
   if (action === "togglePause") {
     const host = String(message.host || "").trim().toLowerCase();
-    if (!host) throw new Error("No hostname");
+    if (!host) throw new Error(chrome.i18n.getMessage("errNoHostname"));
     const state = await getState();
     const paused = new Set(state.pausedHosts);
     if (paused.has(host)) paused.delete(host);
@@ -452,5 +452,5 @@ async function handleMessage(message) {
     await refreshYahooIfNeeded();
     return { state: await getState() };
   }
-  throw new Error("Unknown action");
+  throw new Error(chrome.i18n.getMessage("errUnknownAction"));
 }

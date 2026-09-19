@@ -3,75 +3,75 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>My Unit</title>
+    <title data-i18n="extName">My Unit</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <header>
-      <p class="lede">Hover a price, or right-click Convert. Save a unit to start.</p>
+      <p class="lede" data-i18n="popupLede">Hover a price, or right-click Convert. Save a unit to start.</p>
     </header>
 
     <section id="status" class="card unit-card">
       <div class="unit-copy">
-        <p id="unit-kicker" class="unit-kicker" hidden>Active unit</p>
-        <p id="status-text" class="unit-value muted">No unit yet. Save a custom item, a ticker, or a currency.</p>
+        <p id="unit-kicker" class="unit-kicker" hidden data-i18n="kickerActive">Active unit</p>
+        <p id="status-text" class="unit-value muted" data-i18n="statusNoUnit">No unit yet. Save a custom item, a ticker, or a currency.</p>
       </div>
-      <button type="button" id="clear-unit" class="clear-btn" hidden aria-label="Clear unit" title="Clear unit">
+      <button type="button" id="clear-unit" class="clear-btn" hidden data-i18n-aria="clearUnit" data-i18n-title="clearUnit" aria-label="Clear unit" title="Clear unit">
         <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
           <path fill="currentColor" d="M3.3 3.3a.75.75 0 0 1 1.06 0L8 6.94l3.64-3.64a.75.75 0 1 1 1.06 1.06L9.06 8l3.64 3.64a.75.75 0 1 1-1.06 1.06L8 9.06l-3.64 3.64a.75.75 0 1 1-1.06-1.06L6.94 8 3.3 4.36a.75.75 0 0 1 0-1.06z"/>
         </svg>
       </button>
     </section>
 
-    <nav class="tabs" data-active="custom" role="tablist" aria-label="Unit type">
+    <nav class="tabs" data-active="custom" role="tablist" data-i18n-aria="ariaUnitType" aria-label="Unit type">
       <span class="tab-pill" aria-hidden="true"></span>
-      <button type="button" id="tab-custom" class="tab is-on" role="tab" aria-selected="true" aria-controls="custom-form" data-tab="custom">Custom</button>
-      <button type="button" id="tab-yahoo" class="tab" role="tab" aria-selected="false" aria-controls="yahoo-form" tabindex="-1" data-tab="yahoo">Finance</button>
-      <button type="button" id="tab-currency" class="tab" role="tab" aria-selected="false" aria-controls="currency-form" tabindex="-1" data-tab="currency">Currency</button>
+      <button type="button" id="tab-custom" class="tab is-on" role="tab" aria-selected="true" aria-controls="custom-form" data-tab="custom" data-i18n="tabCustom">Custom</button>
+      <button type="button" id="tab-yahoo" class="tab" role="tab" aria-selected="false" aria-controls="yahoo-form" tabindex="-1" data-tab="yahoo" data-i18n="tabFinance">Finance</button>
+      <button type="button" id="tab-currency" class="tab" role="tab" aria-selected="false" aria-controls="currency-form" tabindex="-1" data-tab="currency" data-i18n="tabCurrency">Currency</button>
     </nav>
 
     <div class="panels">
       <form id="custom-form" class="card panel is-on" role="tabpanel" aria-labelledby="tab-custom">
-        <label>Name <input id="custom-name" type="text" placeholder="ramen · coffee · one day spending" required /></label>
+        <label><span data-i18n="labelName">Name</span> <input id="custom-name" type="text" data-i18n-placeholder="placeholderName" placeholder="ramen · coffee · one day spending" required /></label>
         <label>
-          Currency
+          <span data-i18n="labelCurrency">Currency</span>
           <select id="custom-currency" required></select>
         </label>
-        <label>Price <input id="custom-price" type="number" min="0.01" step="any" placeholder="50" required /></label>
-        <button type="submit">Save</button>
+        <label><span data-i18n="labelPrice">Price</span> <input id="custom-price" type="number" min="0.01" step="any" data-i18n-placeholder="placeholderPrice" placeholder="50" required /></label>
+        <button type="submit" data-i18n="btnSave">Save</button>
       </form>
 
       <form id="yahoo-form" class="card panel" role="tabpanel" aria-labelledby="tab-yahoo" aria-hidden="true">
-        <label>Yahoo ticker <input id="yahoo-symbol" type="text" placeholder="0700.HK" required /></label>
-        <button type="submit">Validate &amp; Save</button>
+        <label><span data-i18n="labelYahooTicker">Yahoo ticker</span> <input id="yahoo-symbol" type="text" data-i18n-placeholder="placeholderTicker" placeholder="0700.HK" required /></label>
+        <button type="submit" data-i18n="btnValidateSave">Validate &amp; Save</button>
       </form>
 
       <form id="currency-form" class="card panel" role="tabpanel" aria-labelledby="tab-currency" aria-hidden="true">
         <label>
-          Show prices in
+          <span data-i18n="labelShowPricesIn">Show prices in</span>
           <select id="display-currency" required></select>
         </label>
-        <button type="submit">Save</button>
+        <button type="submit" data-i18n="btnSave">Save</button>
       </form>
     </div>
 
     <section id="symbol-card" class="card symbol-card">
-      <p id="site-host" class="site-host">Open a normal page first</p>
+      <p id="site-host" class="site-host" data-i18n="openPageFirst">Open a normal page first</p>
       <label class="symbol-field">
         <span class="sym">$</span>
-        <select id="site-dollar" aria-label="$ on this site"></select>
+        <select id="site-dollar" data-i18n-aria="ariaDollarSite" aria-label="$ on this site"></select>
       </label>
       <label class="symbol-field">
         <span class="sym">¥</span>
-        <select id="site-yen" aria-label="¥ on this site"></select>
+        <select id="site-yen" data-i18n-aria="ariaYenSite" aria-label="¥ on this site"></select>
       </label>
       <label class="switch-row">
-        <span>Convert on this site</span>
-        <input id="pause-btn" type="checkbox" role="switch" aria-label="Convert on this site" />
+        <span data-i18n="convertOnSite">Convert on this site</span>
+        <input id="pause-btn" type="checkbox" role="switch" data-i18n-aria="convertOnSite" aria-label="Convert on this site" />
       </label>
     </section>
 
-    <p class="foot">Quote: Yahoo Finance ~15 min delay<br />FX: Frankfurter (ECB), Fallback Yahoo</p>
+    <p class="foot"><span data-i18n="footQuote">Quote: Yahoo Finance ~15 min delay</span><br /><span data-i18n="footFx">FX: Frankfurter (ECB), Fallback Yahoo</span></p>
     <script src="lib/currencies.js"></script>
     <script src="lib/convert.js"></script>
     <script src="popup.js"></script>
