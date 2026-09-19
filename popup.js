@@ -82,14 +82,24 @@ const TABS = [
   ["tab-currency", "currency-form", "currency"],
 ];
 
-function setTab(name) {
+function setTab(name, animate = true) {
+  const keys = TABS.map(([, , key]) => key);
+  const next = keys.indexOf(name);
+  const prev = keys.findIndex((_, i) => document.getElementById(TABS[i][0]).classList.contains("is-on"));
+  const dir = next >= prev ? 1 : -1;
+  const tabsEl = document.querySelector(".tabs");
+  tabsEl.dataset.active = name;
+  if (animate) tabsEl.classList.add("is-ready");
   for (const [tabId, panelId, key] of TABS) {
     const on = name === key;
     const btn = document.getElementById(tabId);
+    const panel = document.getElementById(panelId);
     btn.classList.toggle("is-on", on);
     btn.setAttribute("aria-selected", on ? "true" : "false");
     btn.tabIndex = on ? 0 : -1;
-    document.getElementById(panelId).hidden = !on;
+    panel.classList.toggle("is-on", on);
+    panel.setAttribute("aria-hidden", on ? "false" : "true");
+    if (on) panel.style.setProperty("--tab-dir", String(dir));
   }
 }
 
@@ -180,7 +190,7 @@ async function refresh() {
   pauseBtn.checked = Boolean(currentHost) && !paused;
   pauseBtn.disabled = !currentHost;
   if (!tabSynced) {
-    if (state.unit) setTab(tabForUnit(state.unit));
+    if (state.unit) setTab(tabForUnit(state.unit), false);
     tabSynced = true;
   }
 }
