@@ -60,6 +60,9 @@
   "labelYahooTicker": {
     "message": "Yahoo ticker"
   },
+  "yahooSearchLink": {
+    "message": "ticker"
+  },
   "placeholderTicker": {
     "message": "0700.HK"
   },

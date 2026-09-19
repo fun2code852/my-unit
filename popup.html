@@ -42,7 +42,15 @@
       </form>
 
       <form id="yahoo-form" class="card panel" role="tabpanel" aria-labelledby="tab-yahoo" aria-hidden="true">
-        <label><span data-i18n="labelYahooTicker">Yahoo ticker</span> <input id="yahoo-symbol" type="text" data-i18n-placeholder="placeholderTicker" placeholder="0700.HK" required /></label>
+        <label>
+          <span class="field-head">
+            <span data-i18n="labelYahooTicker">Yahoo ticker</span>
+            <a href="https://finance.yahoo.com/lookup" target="_blank" rel="noopener noreferrer">
+              <span data-i18n="yahooSearchLink">ticker</span><span class="ext" aria-hidden="true">↗</span>
+            </a>
+          </span>
+          <input id="yahoo-symbol" type="text" data-i18n-placeholder="placeholderTicker" placeholder="0700.HK" required />
+        </label>
         <button type="submit" data-i18n="btnValidateSave">Validate &amp; Save</button>
       </form>
 
