@@ -103,6 +103,28 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
 }
 
 {
+  assertEq(UCE.yenHintFromHost("amazon.co.jp.evil.com"), null, "substring .co.jp is not a JP host");
+  assertEq(UCE.yenHintFromHost("jd.com.cn.evil.com"), null, "substring .com.cn is not a CN host");
+  assertEq(UCE.yenHintFromHost("www.amazon.co.jp"), "JPY", "real .co.jp still hints JPY");
+  assertEq(UCE.canonicalHost("www.amazon.com"), "amazon.com", "strip www");
+  assertEq(UCE.canonicalHost("amazon.com"), "amazon.com", "apex unchanged");
+  assertEq(UCE.resolveDollar("www.hktvmall.com", "USD", { "hktvmall.com": "HKD" }), "HKD", "www hits apex $ override");
+  assertEq(UCE.resolveDollar("hktvmall.com", "USD", { "www.hktvmall.com": "HKD" }), "HKD", "apex hits www $ override");
+  assertEq(UCE.resolveYen("www.example.com", "JPY", { "example.com": "CNY" }), "CNY", "www hits apex ¥ override");
+  assert(UCE.hostPaused(["amazon.com"], "www.amazon.com"), "pause apex covers www");
+  assert(UCE.hostPaused(["www.amazon.com"], "amazon.com"), "pause www covers apex");
+  assert(!UCE.hostPaused(["amazon.com"], "smile.amazon.com"), "pause does not cover other subdomains");
+}
+
+{
+  assertEq(findPrices("FOOUSD 10", amazonCtx).length, 0, "ISO needs a leading boundary");
+  const iso = parsePriceString("USD 10", amazonCtx);
+  assert(iso && iso.amount === 10 && iso.currency === "USD", "USD 10 still matches");
+  const gluedIso = parsePriceString("USD10", amazonCtx);
+  assert(gluedIso && gluedIso.amount === 10 && gluedIso.currency === "USD", "USD10 still matches");
+}
+
+{
   assert(!UCE.DOLLAR_CODES.includes("EUR"), "$ list has no euro");
   assert(!UCE.DOLLAR_CODES.includes("JPY"), "$ list has no yen");
   const euro = parsePriceString("$20", {

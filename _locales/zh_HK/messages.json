@@ -100,6 +100,9 @@
   "checkingYahoo": {
     "message": "正在查詢 Yahoo…"
   },
+  "needPageAccess": {
+    "message": "請允許網站存取以在價錢下加線。單位已儲存；仍可用右鍵換算。"
+  },
   "menuConvertMyUnit": {
     "message": "用 My Unit 換算"
   },
