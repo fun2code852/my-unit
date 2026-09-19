@@ -60,6 +60,9 @@
   "labelYahooTicker": {
     "message": "Yahoo 代號"
   },
+  "yahooSearchLink": {
+    "message": "代號"
+  },
   "placeholderTicker": {
     "message": "0700.HK"
   },
