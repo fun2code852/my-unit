@@ -104,4 +104,4 @@ Use these in the permissions questionnaire and, if asked, the listing.
 Package the extension root, not this `store/` folder:
 
 - Include `manifest.json`, `background.js`, `content.js`, `content.css`, `popup.*`, `lib/`, `_locales/`, `icons/*.png`
-- Exclude `.git`, `test/`, `scripts/`, `store/`, `README.md` is optional
+- Exclude `.git`, `test/`, `store/`, `README.md` is optional

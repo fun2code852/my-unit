@@ -29,7 +29,7 @@ The Chrome Web Store listing is in progress. Until it is live, load the extensio
 3. **Load unpacked** → this folder (the directory that contains `manifest.json`)
 4. Pin **My Unit**, save a unit, and allow website access when Chrome asks
 
-Do not pack `store/`, `test/`, `scripts/`, or `.git` if you zip a build.
+Do not pack `store/`, `test/`, or `.git` if you zip a build.
 
 ## Usage
 

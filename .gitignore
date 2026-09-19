@@ -1,7 +1,6 @@
 .DS_Store
 node_modules/
 *.log
-scripts/icons/
 store/screenshot-apple.png
 store/screenshot-tabelog.png
 store/screenshot-28hse.png
