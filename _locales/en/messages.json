@@ -94,6 +94,9 @@
   "coffeeLink": {
     "message": "Buy me a coffee"
   },
+  "githubStar": {
+    "message": "Github Star"
+  },
   "selectBlank": {
     "message": "Select"
   },

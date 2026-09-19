@@ -94,6 +94,9 @@
   "coffeeLink": {
     "message": "請我飲杯咖啡"
   },
+  "githubStar": {
+    "message": "Github Star"
+  },
   "selectBlank": {
     "message": "請選擇"
   },
