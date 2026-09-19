@@ -144,29 +144,26 @@ function describeUnit(unit) {
 }
 
 function paintStatus(unit, error) {
-  if (error) {
-    unitKicker.hidden = true;
-    statusTextEl.textContent = error;
-    statusTextEl.classList.add("muted");
-    statusEl.classList.remove("has-unit");
-    clearUnitBtn.hidden = true;
+  if (unit) {
+    unitKicker.hidden = false;
+    unitKicker.textContent =
+      unit.type === "currency" ? chrome.i18n.getMessage("kickerPricesIn") : chrome.i18n.getMessage("kickerActive");
+    statusEl.classList.add("has-unit");
+    clearUnitBtn.hidden = false;
+    if (error) {
+      statusTextEl.textContent = error;
+      statusTextEl.classList.add("muted");
+    } else {
+      statusTextEl.textContent = describeUnit(unit);
+      statusTextEl.classList.remove("muted");
+    }
     return;
   }
-  if (!unit) {
-    unitKicker.hidden = true;
-    statusTextEl.textContent = describeUnit(null);
-    statusTextEl.classList.add("muted");
-    statusEl.classList.remove("has-unit");
-    clearUnitBtn.hidden = true;
-    return;
-  }
-  unitKicker.hidden = false;
-  unitKicker.textContent =
-    unit.type === "currency" ? chrome.i18n.getMessage("kickerPricesIn") : chrome.i18n.getMessage("kickerActive");
-  statusTextEl.textContent = describeUnit(unit);
-  statusTextEl.classList.remove("muted");
-  statusEl.classList.add("has-unit");
-  clearUnitBtn.hidden = false;
+  unitKicker.hidden = true;
+  statusTextEl.textContent = error || describeUnit(null);
+  statusTextEl.classList.add("muted");
+  statusEl.classList.remove("has-unit");
+  clearUnitBtn.hidden = true;
 }
 
 async function activeHost() {
@@ -184,12 +181,26 @@ async function ensurePageAccess() {
     const have = await chrome.permissions.contains({ origins: PAGE_ORIGINS });
     if (!have) {
       const ok = await chrome.permissions.request({ origins: PAGE_ORIGINS });
-      if (!ok) return;
+      if (!ok) return false;
     }
     await chrome.runtime.sendMessage({ action: "syncInject" });
+    return true;
   } catch (err) {
     console.warn("UCE permission", err);
+    return false;
   }
+}
+
+async function afterSave(res, tab) {
+  if (res.error) {
+    await refresh();
+    paintStatus(state?.unit, res.error);
+    return;
+  }
+  setTab(tab);
+  const granted = await ensurePageAccess();
+  await refresh();
+  if (!granted) paintStatus(state?.unit, chrome.i18n.getMessage("needPageAccess"));
 }
 
 async function refresh() {
@@ -203,7 +214,7 @@ async function refresh() {
   paintUnitFields(state.unit);
   currentHost = await activeHost();
   paintSymbolSettings();
-  const paused = currentHost && state.pausedHosts.includes(currentHost);
+  const paused = currentHost && UCE.hostPaused(state.pausedHosts, currentHost);
   pauseBtn.checked = Boolean(currentHost) && !paused;
   pauseBtn.disabled = !currentHost;
   if (!tabSynced) {
@@ -224,27 +235,17 @@ customForm.addEventListener("submit", async (event) => {
     price: document.getElementById("custom-price").value,
     currency: customCurrency.value,
   });
-  paintStatus(res.unit, res.error);
-  if (!res.error) {
-    setTab("custom");
-    await ensurePageAccess();
-    refresh();
-  }
+  await afterSave(res, "custom");
 });
 
 yahooForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  paintStatus(null, chrome.i18n.getMessage("checkingYahoo"));
+  paintStatus(state?.unit, chrome.i18n.getMessage("checkingYahoo"));
   const res = await chrome.runtime.sendMessage({
     action: "validateYahoo",
     symbol: document.getElementById("yahoo-symbol").value,
   });
-  paintStatus(res.unit, res.error);
-  if (!res.error) {
-    setTab("yahoo");
-    await ensurePageAccess();
-    refresh();
-  }
+  await afterSave(res, "yahoo");
 });
 
 currencyForm.addEventListener("submit", async (event) => {
@@ -253,12 +254,7 @@ currencyForm.addEventListener("submit", async (event) => {
     action: "setCurrencyUnit",
     currency: displayCurrency.value,
   });
-  paintStatus(res.unit, res.error);
-  if (!res.error) {
-    setTab("currency");
-    await ensurePageAccess();
-    refresh();
-  }
+  await afterSave(res, "currency");
 });
 
 siteDollar.addEventListener("change", async () => {

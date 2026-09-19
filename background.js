@@ -47,7 +47,7 @@ function unitReady(unit) {
 }
 
 async function fetchFrankfurter() {
-  const res = await fetch(FX_URL, { cache: "no-store", credentials: "omit" });
+  const res = await fetch(FX_URL, { cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" });
   if (!res.ok) throw new Error(`FX HTTP ${res.status}`);
   const data = await res.json();
   if (!data || data.base !== "USD" || !data.rates) throw new Error("FX payload");
@@ -411,9 +411,13 @@ async function handleMessage(message) {
     return { defaultYen: code };
   }
   if (action === "setOverride") {
-    const host = String(message.host || "").trim().toLowerCase();
+    const host = UCE.canonicalHost(String(message.host || "").trim());
     const state = await getState();
-    const overrides = { ...state.overrides };
+    const overrides = {};
+    for (const [key, value] of Object.entries(state.overrides || {})) {
+      overrides[UCE.canonicalHost(key)] = value;
+    }
+    if (!host) throw new Error(chrome.i18n.getMessage("errNoHostname"));
     if (!message.currency) delete overrides[host];
     else {
       const code = String(message.currency).toUpperCase();
@@ -424,9 +428,13 @@ async function handleMessage(message) {
     return { overrides };
   }
   if (action === "setYenOverride") {
-    const host = String(message.host || "").trim().toLowerCase();
+    const host = UCE.canonicalHost(String(message.host || "").trim());
     const state = await getState();
-    const yenOverrides = { ...state.yenOverrides };
+    const yenOverrides = {};
+    for (const [key, value] of Object.entries(state.yenOverrides || {})) {
+      yenOverrides[UCE.canonicalHost(key)] = value;
+    }
+    if (!host) throw new Error(chrome.i18n.getMessage("errNoHostname"));
     if (!message.currency) delete yenOverrides[host];
     else {
       const code = String(message.currency).toUpperCase();
@@ -437,10 +445,10 @@ async function handleMessage(message) {
     return { yenOverrides };
   }
   if (action === "togglePause") {
-    const host = String(message.host || "").trim().toLowerCase();
+    const host = UCE.canonicalHost(String(message.host || "").trim());
     if (!host) throw new Error(chrome.i18n.getMessage("errNoHostname"));
     const state = await getState();
-    const paused = new Set(state.pausedHosts);
+    const paused = new Set((state.pausedHosts || []).map(UCE.canonicalHost).filter(Boolean));
     if (paused.has(host)) paused.delete(host);
     else paused.add(host);
     const pausedHosts = [...paused];

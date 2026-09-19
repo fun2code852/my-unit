@@ -62,7 +62,7 @@ function unitReady() {
 }
 
 function isPaused() {
-  return (state?.pausedHosts || []).includes(hostName());
+  return UCE.hostPaused(state?.pausedHosts, hostName());
 }
 
 function live() {
@@ -155,8 +155,34 @@ function showPriceTooltip(amount, currency, getRect, key) {
 
 function refreshOpenTooltip() {
   if (!tooltipEl || tooltipEl.hidden || !hoverPayload) return;
+  const key = lastHover;
+  if (key && key.nodeType === Node.ELEMENT_NODE) {
+    if (!key.isConnected || !key.classList.contains("uce-price")) {
+      hideTooltip();
+      return;
+    }
+    showPriceTooltip(Number(key.dataset.uceAmount), key.dataset.uceCurrency, () => key.getBoundingClientRect(), key);
+    return;
+  }
+  if (key && key.startContainer) {
+    const exact = priceRanges.find(
+      (item) =>
+        item.range.startContainer === key.startContainer &&
+        item.range.startOffset === key.startOffset &&
+        item.range.endOffset === key.endOffset,
+    );
+    const item = exact || priceRanges.find((p) => p.range.startContainer === key.startContainer);
+    if (!item) {
+      hideTooltip();
+      return;
+    }
+    showPriceTooltip(item.amount, item.currency, () => item.range.getBoundingClientRect(), item.range);
+    return;
+  }
   showTooltipAtRect(hoverPayload.getRect(), conversionText(hoverPayload.amount, hoverPayload.currency));
 }
+
+const MARK_SEL = ".uce-price, .uce-amazon-mark, .uce-split-mark, .uce-split";
 
 function markPrice(el, amount, currency) {
   el.classList.add("uce-price");
@@ -165,13 +191,24 @@ function markPrice(el, amount, currency) {
   el.dataset.uceBound = "1";
 }
 
+function unmarkOne(el) {
+  el.classList.remove("uce-price", "uce-amazon-mark", "uce-split-mark", "uce-split");
+  delete el.dataset.uceAmount;
+  delete el.dataset.uceCurrency;
+  delete el.dataset.uceBound;
+}
+
 function unmarkElements() {
-  document.querySelectorAll(".uce-price, .uce-amazon-mark, .uce-split-mark, .uce-split").forEach((el) => {
-    el.classList.remove("uce-price", "uce-amazon-mark", "uce-split-mark", "uce-split");
-    delete el.dataset.uceAmount;
-    delete el.dataset.uceCurrency;
-    delete el.dataset.uceBound;
-  });
+  document.querySelectorAll(MARK_SEL).forEach(unmarkOne);
+}
+
+function unmarkElementsIn(root) {
+  if (!root || root === document.body || root === document.documentElement) {
+    unmarkElements();
+    return;
+  }
+  if (root.nodeType === Node.ELEMENT_NODE && root.matches?.(MARK_SEL)) unmarkOne(root);
+  if (root.querySelectorAll) root.querySelectorAll(MARK_SEL).forEach(unmarkOne);
 }
 
 function highlightApi() {
@@ -250,6 +287,13 @@ function elementRoot(root) {
   if (root.nodeType === Node.ELEMENT_NODE) return root;
   if (root.nodeType === Node.DOCUMENT_FRAGMENT_NODE) return root;
   return root.parentElement || document.body;
+}
+
+/** Inner Amazon/split mutations should rebind the host, not a child. */
+function expandScanRoot(root) {
+  const el = elementRoot(root);
+  if (!el || el === document.body || el === document.documentElement) return el;
+  return el.closest?.(".a-price, .uce-price") || el;
 }
 
 function skipWalkEl(el) {
@@ -503,26 +547,38 @@ function processAmazon(root) {
 
 function scan(root) {
   if (!live()) return;
-  const target = elementRoot(root);
+  const target = expandScanRoot(root);
   if (!target || !target.isConnected) return;
+  unmarkElementsIn(target);
   pruneRangesIn(target);
   processAmazon(target);
   processSplitSiblings(target);
   walk(target);
   syncHighlight();
+  refreshOpenTooltip();
 }
 
 function collapseRoots(roots) {
-  const els = [...new Set(roots.map(elementRoot).filter(Boolean))];
+  const els = [...new Set(roots.map(expandScanRoot).filter(Boolean))];
   return els.filter((el) => !els.some((other) => other !== el && other.contains(el)));
 }
 
 function isOurNode(node) {
   if (!node) return true;
   if (node === tooltipEl) return true;
+  if (node.nodeType === Node.TEXT_NODE) {
+    const parent = node.parentElement;
+    return Boolean(parent && (parent === tooltipEl || parent.classList.contains("uce-tooltip")));
+  }
   if (node.nodeType !== Node.ELEMENT_NODE) return false;
   if (node.classList.contains("uce-tooltip")) return true;
   return false;
+}
+
+function skipObserverTarget(node) {
+  if (isOurNode(node)) return true;
+  const el = node && node.nodeType === Node.ELEMENT_NODE ? node : node && node.parentElement;
+  return Boolean(el && SKIP_TAGS.has(el.tagName));
 }
 
 function scheduleScan() {
@@ -565,18 +621,18 @@ function startObserver() {
       return;
     }
     for (const rec of records) {
-      if (isOurNode(rec.target)) continue;
+      if (skipObserverTarget(rec.target)) continue;
       invalidateStrike(rec.target);
       const targetIsRoot = rec.target === document.body || rec.target === document.documentElement;
       if (!targetIsRoot) pendingRoots.add(rec.target);
       rec.addedNodes.forEach((node) => {
-        if (isOurNode(node)) return;
+        if (skipObserverTarget(node)) return;
         if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE) pendingRoots.add(node);
       });
     }
     if (pendingRoots.size) scheduleScan();
   });
-  observer.observe(document.body, { childList: true, subtree: true });
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 }
 
 function priceElFromTarget(target) {
@@ -621,17 +677,23 @@ function rangeHitFromPoint(x, y) {
   return null;
 }
 
+function hoverUnchanged(key, amount, currency) {
+  return lastHover === key && hoverPayload?.amount === amount && hoverPayload?.currency === currency;
+}
+
 function updateHover(x, y, target) {
   if (Date.now() < pinUntil) return;
   const el = priceElFromTarget(target) || priceElFromPoint(x, y);
   if (el) {
-    if (lastHover === el) return;
-    showPriceTooltip(Number(el.dataset.uceAmount), el.dataset.uceCurrency, () => el.getBoundingClientRect(), el);
+    const amount = Number(el.dataset.uceAmount);
+    const currency = el.dataset.uceCurrency;
+    if (hoverUnchanged(el, amount, currency)) return;
+    showPriceTooltip(amount, currency, () => el.getBoundingClientRect(), el);
     return;
   }
   const item = rangeHitFromPoint(x, y);
   if (item) {
-    if (lastHover === item.range) return;
+    if (hoverUnchanged(item.range, item.amount, item.currency)) return;
     showPriceTooltip(item.amount, item.currency, () => item.range.getBoundingClientRect(), item.range);
     return;
   }
