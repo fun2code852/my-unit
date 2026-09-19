@@ -6,8 +6,11 @@
   --muted: light-dark(#5c5854, #a8a29c);
   --line: light-dark(#ddd8d2, #3f3c39);
   --accent: #c54546;
+  --accent-hover: #d45556;
   --field: light-dark(#fff, #2a2826);
   --switch: light-dark(#d8d4d0, #4a4642);
+  --track: light-dark(#f0ece8, #2a2826);
+  --hover: light-dark(#e4dfda, #3f3c39);
 }
 
 * {
@@ -54,11 +57,38 @@ select {
 .tabs {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
+  position: relative;
   margin-bottom: 8px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--track);
 }
 
-.tab,
+.tab-pill {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  height: calc(100% - 6px);
+  border-radius: 7px;
+  background: var(--accent);
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tabs:not(.is-ready) .tab-pill {
+  transition: none;
+}
+
+.tabs[data-active="yahoo"] .tab-pill {
+  transform: translateX(100%);
+}
+
+.tabs[data-active="currency"] .tab-pill {
+  transform: translateX(200%);
+}
+
 button {
   border: 1px solid var(--line);
   background: var(--card);
@@ -66,24 +96,89 @@ button {
   border-radius: 8px;
   padding: 7px 8px;
   cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .tab {
+  position: relative;
+  z-index: 1;
+  border: none;
+  background: transparent;
+  color: var(--muted);
   font-size: 11px;
   line-height: 1.25;
   padding: 7px 4px;
+  border-radius: 7px;
 }
 
-.tab.is-on,
-button[type="submit"] {
-  background: var(--accent);
-  border-color: var(--accent);
+.tab:hover:not(.is-on) {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.tab.is-on {
+  background: transparent;
   color: #fff;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 button[type="submit"] {
   display: block;
   width: 100%;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button[type="submit"]:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.panels {
+  margin-bottom: 10px;
+}
+
+.panel {
+  margin-bottom: 0;
+}
+
+.panel:not(.is-on) {
+  display: none;
+}
+
+.tabs.is-ready ~ .panels .panel.is-on {
+  animation: panel-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--tab-dir, 1) * 10px));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-pill,
+  button {
+    transition: none;
+  }
+
+  .tabs.is-ready ~ .panels .panel.is-on {
+    animation: none;
+  }
 }
 
 label {
@@ -101,6 +196,10 @@ select {
   border: 1px solid var(--line);
   background: var(--field);
   color: var(--ink);
+}
+
+select {
+  cursor: pointer;
 }
 
 .foot {
@@ -148,13 +247,20 @@ select {
 }
 
 .clear-btn {
+  display: none;
+  place-items: center;
   flex-shrink: 0;
+  width: 28px;
+  height: 28px;
   margin: 0;
-  padding: 6px 10px;
+  padding: 0;
   border: 1px solid var(--accent);
   background: var(--card);
   color: var(--accent);
-  font-size: 12px;
+}
+
+.unit-card.has-unit .clear-btn:not([hidden]) {
+  display: grid;
 }
 
 .clear-btn:hover {

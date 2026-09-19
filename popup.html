@@ -16,37 +16,44 @@
         <p id="unit-kicker" class="unit-kicker" hidden>Active unit</p>
         <p id="status-text" class="unit-value muted">No unit yet. Save a custom item, a ticker, or a currency.</p>
       </div>
-      <button type="button" id="clear-unit" class="clear-btn" hidden>Clear</button>
+      <button type="button" id="clear-unit" class="clear-btn" hidden aria-label="Clear unit" title="Clear unit">
+        <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+          <path fill="currentColor" d="M3.3 3.3a.75.75 0 0 1 1.06 0L8 6.94l3.64-3.64a.75.75 0 1 1 1.06 1.06L9.06 8l3.64 3.64a.75.75 0 1 1-1.06 1.06L8 9.06l-3.64 3.64a.75.75 0 1 1-1.06-1.06L6.94 8 3.3 4.36a.75.75 0 0 1 0-1.06z"/>
+        </svg>
+      </button>
     </section>
 
-    <nav class="tabs" role="tablist" aria-label="Unit type">
+    <nav class="tabs" data-active="custom" role="tablist" aria-label="Unit type">
+      <span class="tab-pill" aria-hidden="true"></span>
       <button type="button" id="tab-custom" class="tab is-on" role="tab" aria-selected="true" aria-controls="custom-form" data-tab="custom">Custom</button>
       <button type="button" id="tab-yahoo" class="tab" role="tab" aria-selected="false" aria-controls="yahoo-form" tabindex="-1" data-tab="yahoo">Finance</button>
       <button type="button" id="tab-currency" class="tab" role="tab" aria-selected="false" aria-controls="currency-form" tabindex="-1" data-tab="currency">Currency</button>
     </nav>
 
-    <form id="custom-form" class="card panel" role="tabpanel" aria-labelledby="tab-custom">
-      <label>Name <input id="custom-name" type="text" placeholder="ramen · coffee · one day spending" required /></label>
-      <label>
-        Currency
-        <select id="custom-currency" required></select>
-      </label>
-      <label>Price <input id="custom-price" type="number" min="0.01" step="any" placeholder="50" required /></label>
-      <button type="submit">Save</button>
-    </form>
+    <div class="panels">
+      <form id="custom-form" class="card panel is-on" role="tabpanel" aria-labelledby="tab-custom">
+        <label>Name <input id="custom-name" type="text" placeholder="ramen · coffee · one day spending" required /></label>
+        <label>
+          Currency
+          <select id="custom-currency" required></select>
+        </label>
+        <label>Price <input id="custom-price" type="number" min="0.01" step="any" placeholder="50" required /></label>
+        <button type="submit">Save</button>
+      </form>
 
-    <form id="yahoo-form" class="card panel" role="tabpanel" aria-labelledby="tab-yahoo" hidden>
-      <label>Yahoo ticker <input id="yahoo-symbol" type="text" placeholder="0700.HK" required /></label>
-      <button type="submit">Validate &amp; Save</button>
-    </form>
+      <form id="yahoo-form" class="card panel" role="tabpanel" aria-labelledby="tab-yahoo" aria-hidden="true">
+        <label>Yahoo ticker <input id="yahoo-symbol" type="text" placeholder="0700.HK" required /></label>
+        <button type="submit">Validate &amp; Save</button>
+      </form>
 
-    <form id="currency-form" class="card panel" role="tabpanel" aria-labelledby="tab-currency" hidden>
-      <label>
-        Show prices in
-        <select id="display-currency" required></select>
-      </label>
-      <button type="submit">Save</button>
-    </form>
+      <form id="currency-form" class="card panel" role="tabpanel" aria-labelledby="tab-currency" aria-hidden="true">
+        <label>
+          Show prices in
+          <select id="display-currency" required></select>
+        </label>
+        <button type="submit">Save</button>
+      </form>
+    </div>
 
     <section id="symbol-card" class="card symbol-card">
       <p id="site-host" class="site-host">Open a normal page first</p>
