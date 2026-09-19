@@ -91,6 +91,9 @@
   "footFx": {
     "message": "FX: Frankfurter (ECB), Fallback Yahoo"
   },
+  "coffeeLink": {
+    "message": "Buy me a coffee"
+  },
   "selectBlank": {
     "message": "Select"
   },

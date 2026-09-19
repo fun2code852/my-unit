@@ -91,6 +91,9 @@
   "footFx": {
     "message": "匯率：Frankfurter（ECB），備用 Yahoo"
   },
+  "coffeeLink": {
+    "message": "請我喝杯咖啡"
+  },
   "selectBlank": {
     "message": "請選擇"
   },
