@@ -227,6 +227,15 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
   assertEq(formatCount(0.0012), "0.0012", "small count keeps digits");
   assertEq(formatCount(0.00024), "0.00024", "BTC-scale count");
   assertEq(formatCount(0.01), "0.01", "format 0.01");
+  assertEq(formatCount(999), "999", "no comma under 1000");
+  assertEq(formatCount(1000), "1,000", "format 1000");
+  assertEq(formatCount(1199), "1,199", "format 1199");
+  assertEq(formatCount(1000.4), "1,000.4", "format 1000.4");
+  assertEq(formatCount(2555123.4), "2,555,123.4", "format millions");
+  assertEq(UCE.formatQuote(332.41, 2), "332.41", "quote under 1000");
+  assertEq(UCE.formatQuote(1234.5, 2), "1,234.50", "quote groups thousands");
+  assertEq(UCE.groupThousands(50), "50", "group small custom price");
+  assertEq(UCE.groupThousands(1199), "1,199", "group custom price");
 }
 
 console.log("ok", parseNumber("1,199.00"));
