@@ -36,7 +36,6 @@ select {
 }
 
 .lede,
-.hint,
 .foot,
 .muted {
   color: var(--muted);
