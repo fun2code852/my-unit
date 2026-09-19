@@ -4,7 +4,7 @@
     "description": "Extension name and brand. Keep zh_HK and zh_TW catalogs identical."
   },
   "extDescription": {
-    "message": "將網頁上的價錢換算成你常用的單位——自訂物品或 Yahoo 財經代碼。",
+    "message": "將網頁上的價錢換算成你常用的單位——自訂物品、Yahoo 財經代碼或貨幣。",
     "description": "Store and manifest description"
   },
   "extTitle": {
@@ -95,7 +95,7 @@
     "message": "請我飲杯咖啡"
   },
   "githubStar": {
-    "message": "Github Star"
+    "message": "Github ⭐"
   },
   "selectBlank": {
     "message": "請選擇"

@@ -262,8 +262,8 @@ select {
 }
 
 .github {
-  background: light-dark(#24292f, #f0f6fc);
-  color: light-dark(#fff, #111);
+  background: light-dark(#d8d4d0, #4a4642);
+  color: var(--ink);
 }
 
 .promo-mark {
@@ -275,7 +275,7 @@ select {
 }
 
 .github:hover {
-  background: light-dark(#1b1f23, #fff);
+  background: light-dark(#cfcac5, #5c5854);
 }
 
 .coffee:focus-visible,

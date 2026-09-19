@@ -117,6 +117,40 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
 }
 
 {
+  const artsy = "US$12,000";
+  assertEq(UCE.pageCurrencyHints(artsy).dollar, "USD", "US$12,000 hints USD");
+  assertEq(UCE.pageCurrencyHints("$12,000", { defaultDollar: "HKD" }).dollar, null, "bare $ is not a page hint");
+  assertEq(UCE.pageCurrencyHints("HK$310 HK$200").dollar, "HKD", "HK$ prices hint HKD");
+  assertEq(UCE.pageCurrencyHints("US$10 HK$10").dollar, null, "tied US$ and HK$ is not a hint");
+  assertEq(UCE.pageCurrencyHints("USD 12.99").dollar, "USD", "ISO USD next to an amount hints USD");
+  assertEq(UCE.pageCurrencyHints("CN¥88 ¥1200", { defaultYen: "JPY" }).yen, "CNY", "CN¥ hints CNY; bare ¥ is ignored");
+  assertEq(UCE.resolveDollar("www.artsy.net", "HKD", {}, "USD"), "USD", "page hint beats default $");
+  assertEq(
+    UCE.resolveDollar("www.artsy.net", "HKD", { "artsy.net": "CAD" }, "USD"),
+    "CAD",
+    "site $ override beats page hint",
+  );
+  const hinted = parsePriceString("$20", {
+    hostname: "www.artsy.net",
+    defaultDollar: "HKD",
+    pageDollar: "USD",
+  });
+  assert(hinted && hinted.currency === "USD", "bare $ uses page USD hint");
+  const forced = parsePriceString("US$12,000", {
+    hostname: "www.artsy.net",
+    defaultDollar: "HKD",
+    pageDollar: "USD",
+    overrides: { "artsy.net": "TWD" },
+  });
+  assert(forced && forced.currency === "TWD", "site $ override forces US$");
+  const isoStays = parsePriceString("USD 12", {
+    hostname: "www.artsy.net",
+    overrides: { "artsy.net": "HKD" },
+  });
+  assert(isoStays && isoStays.currency === "USD", "ISO USD ignores $ override");
+}
+
+{
   assertEq(findPrices("FOOUSD 10", amazonCtx).length, 0, "ISO needs a leading boundary");
   const iso = parsePriceString("USD 10", amazonCtx);
   assert(iso && iso.amount === 10 && iso.currency === "USD", "USD 10 still matches");

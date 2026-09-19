@@ -17,6 +17,8 @@ const PAGE_ORIGINS = ["http://*/*", "https://*/*"];
 let currentHost = "";
 let state = null;
 let tabSynced = false;
+let pageDollar = null;
+let pageYen = null;
 
 function applyI18n(root = document) {
   document.documentElement.lang = chrome.i18n.getUILanguage();
@@ -57,28 +59,28 @@ function fillSelect(select, codes, blank) {
 }
 
 function autoDollar() {
-  return UCE.resolveDollar(currentHost, state?.defaultDollar, {});
+  return UCE.resolveDollar(currentHost, state?.defaultDollar, {}, pageDollar);
 }
 
 function autoYen() {
-  return UCE.resolveYen(currentHost, state?.defaultYen, {});
+  return UCE.resolveYen(currentHost, state?.defaultYen, {}, pageYen);
 }
 
 function paintSymbolSettings() {
   const dollarOverrides = state.overrides || {};
   const yenOverrides = state.yenOverrides || {};
-  const dollarOverride = currentHost ? dollarOverrides[currentHost] : "";
-  const yenOverride = currentHost ? yenOverrides[currentHost] : "";
-  const resolvedDollar = UCE.resolveDollar(currentHost, state.defaultDollar, dollarOverrides);
-  const resolvedYen = UCE.resolveYen(currentHost, state.defaultYen, yenOverrides);
+  const resolvedDollar = UCE.resolveDollar(currentHost, state.defaultDollar, dollarOverrides, pageDollar);
+  const resolvedYen = UCE.resolveYen(currentHost, state.defaultYen, yenOverrides, pageYen);
+  const autoDollarCode = UCE.resolveDollar(currentHost, state.defaultDollar, {}, pageDollar);
+  const autoYenCode = UCE.resolveYen(currentHost, state.defaultYen, {}, pageYen);
 
   siteHost.textContent = currentHost || chrome.i18n.getMessage("openPageFirst");
   siteDollar.value = resolvedDollar;
   siteYen.value = resolvedYen;
   siteDollar.disabled = !currentHost;
   siteYen.disabled = !currentHost;
-  siteDollar.classList.toggle("is-overridden", Boolean(dollarOverride));
-  siteYen.classList.toggle("is-overridden", Boolean(yenOverride));
+  siteDollar.classList.toggle("is-overridden", resolvedDollar !== autoDollarCode);
+  siteYen.classList.toggle("is-overridden", resolvedYen !== autoYenCode);
 }
 
 function paintUnitFields(unit) {
@@ -166,13 +168,33 @@ function paintStatus(unit, error) {
   clearUnitBtn.hidden = true;
 }
 
-async function activeHost() {
+async function activeTab() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tab || null;
+  } catch {
+    return null;
+  }
+}
+
+async function activeHost() {
+  try {
+    const tab = await activeTab();
     if (!tab?.url) return "";
     return new URL(tab.url).hostname.toLowerCase();
   } catch {
     return "";
+  }
+}
+
+async function tabPageHints() {
+  try {
+    const tab = await activeTab();
+    if (!tab?.id) return {};
+    const res = await chrome.tabs.sendMessage(tab.id, { action: "getPageHints" });
+    return res || {};
+  } catch {
+    return {};
   }
 }
 
@@ -213,6 +235,9 @@ async function refresh() {
   paintStatus(state.unit);
   paintUnitFields(state.unit);
   currentHost = await activeHost();
+  const hints = await tabPageHints();
+  pageDollar = hints.dollar || null;
+  pageYen = hints.yen || null;
   paintSymbolSettings();
   const paused = currentHost && UCE.hostPaused(state.pausedHosts, currentHost);
   pauseBtn.checked = Boolean(currentHost) && !paused;
