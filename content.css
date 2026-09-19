@@ -24,26 +24,3 @@
 .uce-split.uce-price {
   cursor: help;
 }
-
-.uce-tooltip {
-  all: initial;
-  position: fixed !important;
-  z-index: 2147483646 !important;
-  box-sizing: border-box;
-  max-width: min(280px, calc(100vw - 16px));
-  padding: 6px 10px;
-  border-radius: 6px;
-  background: #c54546;
-  color: #fff;
-  font-size: 12px;
-  line-height: 1.35;
-  font-family: HelveticaNeueCustom, "Helvetica Neue", Helvetica, sans-serif;
-  pointer-events: none !important;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.uce-tooltip[hidden] {
-  display: none !important;
-}

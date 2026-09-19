@@ -24,6 +24,7 @@ const HIGHLIGHT_NAME = "uce-price";
 const MAX_SCAN_ROOTS = 20;
 
 let state = null;
+let tooltipHost = null;
 let tooltipEl = null;
 let observer = null;
 let scheduled = false;
@@ -36,6 +37,10 @@ let moveRaf = 0;
 let priceRanges = [];
 const pendingRoots = new Set();
 const strikeCache = new WeakMap();
+const markedEls = new WeakSet();
+
+const TOOLTIP_CSS =
+  "#t{all:initial;display:block;box-sizing:border-box;max-width:min(280px,calc(100vw - 16px));padding:6px 10px;border-radius:6px;background:#c54546;color:#fff;font-size:12px;line-height:1.35;font-family:HelveticaNeueCustom,\"Helvetica Neue\",Helvetica,sans-serif;pointer-events:none!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}";
 
 function hostName() {
   try {
@@ -93,51 +98,44 @@ function conversionText(amount, currency) {
   return asOf ? `${short} · ${asOf}` : short;
 }
 
-function removeStrayTooltips(keep) {
-  document.querySelectorAll(".uce-tooltip").forEach((el) => {
-    if (el !== keep) el.remove();
-  });
-}
-
 function ensureTooltip() {
-  if (tooltipEl && tooltipEl.isConnected) {
-    removeStrayTooltips(tooltipEl);
-    return tooltipEl;
-  }
-  const existing = document.querySelector(".uce-tooltip");
-  if (existing) {
-    tooltipEl = existing;
-    removeStrayTooltips(tooltipEl);
-    return tooltipEl;
-  }
+  if (tooltipHost && tooltipHost.isConnected && tooltipEl) return tooltipEl;
+  if (tooltipHost) tooltipHost.remove();
+  tooltipHost = document.createElement("div");
+  tooltipHost.setAttribute("aria-hidden", "true");
+  tooltipHost.style.cssText =
+    "position:fixed;z-index:2147483646;pointer-events:none;width:max-content;max-width:min(280px,calc(100vw - 16px))";
+  tooltipHost.style.setProperty("pointer-events", "none", "important");
+  tooltipHost.style.setProperty("z-index", "2147483646", "important");
+  tooltipHost.hidden = true;
+  const shadow = tooltipHost.attachShadow({ mode: "closed" });
+  const style = document.createElement("style");
+  style.textContent = TOOLTIP_CSS;
   tooltipEl = document.createElement("div");
-  tooltipEl.className = "uce-tooltip";
-  tooltipEl.id = "uce-tooltip";
-  tooltipEl.hidden = true;
-  (document.body || document.documentElement).appendChild(tooltipEl);
+  tooltipEl.id = "t";
+  shadow.append(style, tooltipEl);
+  (document.body || document.documentElement).appendChild(tooltipHost);
   return tooltipEl;
 }
 
 function showTooltipAtRect(rect, text) {
   const tip = ensureTooltip();
-  tip.textContent = text;
-  tip.hidden = false;
-  const tipHeight = tip.offsetHeight || 28;
-  const tipWidth = Math.min(tip.offsetWidth || 160, 280);
+  if (tip.textContent !== text) tip.textContent = text;
+  tooltipHost.hidden = false;
+  const tipHeight = tooltipHost.offsetHeight || 28;
+  const tipWidth = Math.min(tooltipHost.offsetWidth || 160, 280);
   const above = rect.top - tipHeight - 8;
   const below = rect.bottom + 8;
   const top = above >= 8 ? above : below;
   const left = Math.min(Math.max(8, rect.left), window.innerWidth - tipWidth - 8);
-  tip.style.top = `${Math.round(Math.max(8, top))}px`;
-  tip.style.left = `${Math.round(left)}px`;
+  tooltipHost.style.top = `${Math.round(Math.max(8, top))}px`;
+  tooltipHost.style.left = `${Math.round(left)}px`;
 }
 
 function hideTooltip() {
   hoverPayload = null;
   lastHover = null;
-  document.querySelectorAll(".uce-tooltip").forEach((el) => {
-    el.hidden = true;
-  });
+  if (tooltipHost) tooltipHost.hidden = true;
 }
 
 function pinTooltip(ms) {
@@ -154,10 +152,10 @@ function showPriceTooltip(amount, currency, getRect, key) {
 }
 
 function refreshOpenTooltip() {
-  if (!tooltipEl || tooltipEl.hidden || !hoverPayload) return;
+  if (!tooltipHost || tooltipHost.hidden || !hoverPayload) return;
   const key = lastHover;
   if (key && key.nodeType === Node.ELEMENT_NODE) {
-    if (!key.isConnected || !key.classList.contains("uce-price")) {
+    if (!key.isConnected || !markedEls.has(key)) {
       hideTooltip();
       return;
     }
@@ -185,6 +183,7 @@ function refreshOpenTooltip() {
 const MARK_SEL = ".uce-price, .uce-amazon-mark, .uce-split";
 
 function markPrice(el, amount, currency) {
+  markedEls.add(el);
   el.classList.add("uce-price");
   el.dataset.uceAmount = String(amount);
   el.dataset.uceCurrency = currency;
@@ -192,6 +191,7 @@ function markPrice(el, amount, currency) {
 }
 
 function unmarkOne(el) {
+  markedEls.delete(el);
   el.classList.remove("uce-price", "uce-amazon-mark", "uce-split");
   delete el.dataset.uceAmount;
   delete el.dataset.uceCurrency;
@@ -300,8 +300,8 @@ function skipWalkEl(el) {
   if (!el || el.nodeType !== Node.ELEMENT_NODE) return true;
   if (SKIP_TAGS.has(el.tagName)) return true;
   if (el.isContentEditable) return true;
-  if (el.classList.contains("uce-tooltip") || el === tooltipEl) return true;
-  if (el.closest(".uce-price, .uce-tooltip, .a-price")) return true;
+  if (el === tooltipHost) return true;
+  if (el.closest(".uce-price, .a-price")) return true;
   if (el.closest("[contenteditable='true'], [contenteditable='']")) return true;
   return false;
 }
@@ -564,15 +564,7 @@ function collapseRoots(roots) {
 }
 
 function isOurNode(node) {
-  if (!node) return true;
-  if (node === tooltipEl) return true;
-  if (node.nodeType === Node.TEXT_NODE) {
-    const parent = node.parentElement;
-    return Boolean(parent && (parent === tooltipEl || parent.classList.contains("uce-tooltip")));
-  }
-  if (node.nodeType !== Node.ELEMENT_NODE) return false;
-  if (node.classList.contains("uce-tooltip")) return true;
-  return false;
+  return !node || node === tooltipHost;
 }
 
 function skipObserverTarget(node) {
@@ -636,9 +628,10 @@ function startObserver() {
 }
 
 function priceElFromTarget(target) {
-  if (!target || target === tooltipEl) return null;
+  if (!target || target === tooltipHost) return null;
   if (target.nodeType !== Node.ELEMENT_NODE) target = target.parentElement;
-  return target?.closest?.(".uce-price") || null;
+  const hit = target?.closest?.(".uce-price");
+  return hit && markedEls.has(hit) ? hit : null;
 }
 
 function pointInRect(x, y, rect, pad) {
@@ -653,10 +646,10 @@ function pointInRect(x, y, rect, pad) {
 function priceElFromPoint(x, y) {
   const stack = document.elementsFromPoint(x, y);
   for (const el of stack) {
-    if (!el || el === tooltipEl) continue;
-    if (el.classList?.contains("uce-price")) return el;
+    if (!el || el === tooltipHost) continue;
+    if (markedEls.has(el)) return el;
     const hit = el.closest?.(".uce-price");
-    if (hit) return hit;
+    if (hit && markedEls.has(hit)) return hit;
   }
   return null;
 }
@@ -715,7 +708,7 @@ function onPointerOut(event) {
   if (next) return;
   lastHover = null;
   hoverPayload = null;
-  if (tooltipEl) tooltipEl.hidden = true;
+  if (tooltipHost) tooltipHost.hidden = true;
 }
 
 function onPointerMove(event) {
@@ -780,7 +773,8 @@ function teardown() {
   dirtyWhileHidden = false;
   stopPointerTracking();
   hideTooltip();
-  removeStrayTooltips(null);
+  if (tooltipHost) tooltipHost.remove();
+  tooltipHost = null;
   tooltipEl = null;
   clearHighlights();
   unmarkElements();
@@ -893,7 +887,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function boot() {
   if (document.contentType && document.contentType !== "text/html") return;
-  removeStrayTooltips(null);
+  if (tooltipHost) tooltipHost.remove();
+  tooltipHost = null;
   tooltipEl = null;
   const res = await chrome.runtime.sendMessage({ action: "getState" });
   state = res?.state;
