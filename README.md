@@ -1,45 +1,82 @@
 # My Unit
 
-Chrome extension (Manifest V3): hover a detected price and see it in **one** unit — a custom item (ramen + price) or a [Yahoo Finance](https://finance.yahoo.com) ticker (`AAPL`, `0700.HK`, `BTC-USD`).
+Chrome extension that converts webpage prices into **one** unit you choose: a custom item (coffee at HK$50), a [Yahoo Finance](https://finance.yahoo.com) ticker (`0700.HK`, `BTC-USD`), or a display currency.
 
-This is 1.0. The popup, context menu, and tooltips follow the Chrome UI language: English or Traditional Chinese (`zh-HK` / `zh-TW`). Simplified Chinese falls back to English. Chrome Web Store listing translations are set in the developer dashboard, not by `_locales`.
+<p align="center">
+  <img src="store/screenshot-popup-en.png" alt="My Unit popup with a custom coffee unit" width="560" />
+</p>
 
-## What it does
+Hover an underlined price, or select one and right-click **Convert**. The original amount stays on the page.
 
-- Finds prices that already include a currency signal (`HK$310.00`, `$ 43.00`, `HKD 78.37`). Bare numbers are ignored. Text prices are underlined with the CSS Highlight API (the page DOM is not wrapped). Amazon uses the `.a-price` widget (same idea as [Opportunity Cost](https://github.com/TFTC-Holdings-Inc/opportunity-cost); reimplemented, not copied). CSS `line-through` and Amazon list-price widgets (`data-a-strike`, `a-text-price`) are skipped.
-- Dotted underline, tooltip on hover. Select a price and right-click **Convert to …** for the same tooltip. Original price stays on the page. Changing the unit or pausing a site does not reload tabs.
-- Live units poll Yahoo’s `v8/chart` endpoint every 15 minutes (only while a ticker is saved). FX is [Frankfurter](https://frankfurter.dev) (ECB, daily); currencies ECB omits (TWD) fall back to Yahoo `TWD=X`. Nothing from the page is uploaded.
-- Inactive until you save a unit. Saving asks Chrome for website access so pages can be underlined. Per-site pause is a toggle in the popup. Right-click Convert still works on the current tab via the toolbar click.
+## Features
 
-Yahoo quotes are unofficial, often delayed, and can break without notice. Custom units still work if Yahoo dies. Default bare `$` is **HKD**.
+- Matches amounts that already include a currency signal (`HK$310.00`, `$ 43.00`, `HKD 78.37`). Bare numbers are ignored.
+- Custom item, Yahoo ticker, or ISO currency as the single unit.
+- Per-site `$` and `¥` overrides, and a pause toggle, in the popup.
+- Optional website access: underline prices only on sites you allow. Right-click Convert still works on the current tab without that grant.
+- English and Traditional Chinese UI (`en`, `zh-HK`, `zh-TW`), following Chrome’s language. Simplified Chinese falls back to English.
 
-## Load unpacked
+Default bare `$` is **HKD**. FX uses [Frankfurter](https://frankfurter.dev) (ECB daily rates); currencies the ECB omits (such as TWD) fall back to Yahoo. Live tickers poll Yahoo’s unofficial chart API about every 15 minutes. Quotes can be delayed or break; custom units still work if Yahoo is down. Nothing from the page is uploaded.
 
-1. Chrome → `chrome://extensions`
-2. Enable **Developer mode**
-3. **Load unpacked** → this folder
-4. Pin **My Unit**, set a custom unit or validate a ticker
-5. Allow website access when Chrome asks
-6. Open the dogfood pages below
+Amazon list / “was” prices and CSS `line-through` amounts are skipped. Text prices use the CSS Highlight API (the page DOM is not wrapped). Amazon `.a-price` widgets are handled the same way as [Opportunity Cost](https://github.com/TFTC-Holdings-Inc/opportunity-cost) (reimplemented, not copied).
 
-## 1.0 dogfood
+## Install
 
-| Page | What should convert |
+The Chrome Web Store listing is in progress. Until it is live, load the extension unpacked:
+
+1. Clone this repo
+2. Chrome → `chrome://extensions` → enable **Developer mode**
+3. **Load unpacked** → this folder (the directory that contains `manifest.json`)
+4. Pin **My Unit**, save a unit, and allow website access when Chrome asks
+
+Do not pack `store/`, `test/`, `scripts/`, or `.git` if you zip a build.
+
+## Usage
+
+1. Open the popup and save a custom item, a ticker, or a currency.
+2. On a page you have allowed, underlined prices show the conversion on hover.
+3. Anywhere, select a price and use the right-click menu.
+4. Pause a hostname from the popup if you do not want underlines there (internet banking, and so on).
+
+## Development
+
+Vanilla Manifest V3. No bundler.
+
+| Path | Role |
 | --- | --- |
-| https://www.petpetfootprint.com/ | `HK$310.00` and other `HK$` product prices |
-| https://www.hktvmall.com/hktv/zh/ | `$ 43.00` as HKD |
-| https://www.amazon.com/s?k=usb+c+cable | live `HKD 78.37`-style widgets; list / “was” prices skipped |
+| `background.js` | Service worker: storage, FX, Yahoo, injection, context menu |
+| `content.js` / `content.css` | Price scan, underline, tooltip |
+| `popup.*` | Settings UI |
+| `lib/` | Shared parse / convert / currency lists |
+| `_locales/` | Chrome i18n catalogs |
+| `test/parse.test.js` | Parser and conversion checks |
 
-Known noise: promo banners (`$300` 免運), both ends of a `HK$35 ~ HK$756` range.
+```bash
+node test/parse.test.js
+```
 
-## Source
+Store listing copy and the promo tile live in [`store/LISTING.md`](store/LISTING.md). Apple / Tabelog / 28Hse screenshots are local dashboard assets and are gitignored.
 
-[github.com/fun2code852/my-unit](https://github.com/fun2code852/my-unit)
+### Manual checks
+
+These are the three live-site scenes used for the store listing (screenshots stay local and gitignored). Exact tooltip numbers move with FX and Yahoo.
+
+| Page | Saved unit | What to hover |
+| --- | --- | --- |
+| [Apple HK iPhone](https://www.apple.com/hk/iphone/) | Custom: coffee · 50 HKD | iPhone Duo `HK$17,499` → about 350 coffee |
+| [Tabelog Tokyo](https://tabelog.com/tokyo/) | Currency: HKD | A listing `￥4,000` → HKD |
+| [28Hse rent](https://www.28hse.com/rent) | Finance: `BTC-USD` | Monthly `租 $20,500` (HKD) → Bitcoin |
+
+Stay on the Japanese Tabelog host so yen amounts remain `￥`. Default bare `$` is HKD, which is what 28Hse uses.
+
+## Contributing
+
+Issues and pull requests are welcome at [github.com/fun2code852/my-unit](https://github.com/fun2code852/my-unit). Please run `node test/parse.test.js` before sending a PR.
 
 ## Privacy
 
-See [PRIVACY.md](PRIVACY.md). The Chrome Web Store listing should use this file’s URL on `main`.
+See [PRIVACY.md](PRIVACY.md). The Chrome Web Store privacy URL should point at that file on `main`.
 
 ## License
 
-MIT. Amazon widget approach inspired by Opportunity Cost (MIT).
+[MIT](LICENSE). Amazon widget approach inspired by Opportunity Cost (MIT).
