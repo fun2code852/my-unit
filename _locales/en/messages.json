@@ -1,0 +1,151 @@
+{
+  "extName": {
+    "message": "My Unit",
+    "description": "Extension name and brand. Keep zh_HK and zh_TW catalogs identical."
+  },
+  "extDescription": {
+    "message": "Hover webpage prices to see them in one favourite unit — a custom item or a Yahoo Finance symbol.",
+    "description": "Store and manifest description"
+  },
+  "extTitle": {
+    "message": "My Unit",
+    "description": "Toolbar tooltip"
+  },
+  "popupLede": {
+    "message": "Hover a price, or right-click Convert. Save a unit to start.",
+    "description": "Popup intro"
+  },
+  "kickerActive": {
+    "message": "Active unit"
+  },
+  "kickerPricesIn": {
+    "message": "Prices in"
+  },
+  "statusNoUnit": {
+    "message": "No unit yet. Save a custom item, a ticker, or a currency."
+  },
+  "clearUnit": {
+    "message": "Clear unit"
+  },
+  "ariaUnitType": {
+    "message": "Unit type"
+  },
+  "tabCustom": {
+    "message": "Custom"
+  },
+  "tabFinance": {
+    "message": "Finance"
+  },
+  "tabCurrency": {
+    "message": "Currency"
+  },
+  "labelName": {
+    "message": "Name"
+  },
+  "placeholderName": {
+    "message": "ramen · coffee · one day spending"
+  },
+  "labelCurrency": {
+    "message": "Currency"
+  },
+  "labelPrice": {
+    "message": "Price"
+  },
+  "placeholderPrice": {
+    "message": "50"
+  },
+  "btnSave": {
+    "message": "Save"
+  },
+  "labelYahooTicker": {
+    "message": "Yahoo ticker"
+  },
+  "placeholderTicker": {
+    "message": "0700.HK"
+  },
+  "btnValidateSave": {
+    "message": "Validate & Save"
+  },
+  "labelShowPricesIn": {
+    "message": "Show prices in"
+  },
+  "openPageFirst": {
+    "message": "Open a normal page first"
+  },
+  "ariaDollarSite": {
+    "message": "$$ on this site",
+    "description": "Aria label for the $ override. $$ is a literal dollar sign."
+  },
+  "ariaYenSite": {
+    "message": "¥ on this site"
+  },
+  "convertOnSite": {
+    "message": "Convert on this site"
+  },
+  "footQuote": {
+    "message": "Quote: Yahoo Finance ~15 min delay"
+  },
+  "footFx": {
+    "message": "FX: Frankfurter (ECB), Fallback Yahoo"
+  },
+  "selectBlank": {
+    "message": "Select"
+  },
+  "checkingYahoo": {
+    "message": "Checking Yahoo…"
+  },
+  "menuConvertMyUnit": {
+    "message": "Convert with My Unit"
+  },
+  "menuConvertTo": {
+    "message": "Convert to $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "ramen"
+      }
+    }
+  },
+  "errNeedNamePrice": {
+    "message": "Need a name and a price > 0"
+  },
+  "errUnsupportedCurrency": {
+    "message": "Unsupported currency"
+  },
+  "errEmptySymbol": {
+    "message": "Empty symbol"
+  },
+  "errYahooUnreachable": {
+    "message": "Yahoo unreachable"
+  },
+  "errYahooHttp": {
+    "message": "Yahoo HTTP $STATUS$",
+    "placeholders": {
+      "status": {
+        "content": "$1",
+        "example": "404"
+      }
+    }
+  },
+  "errYahooNoPrice": {
+    "message": "Yahoo had no price"
+  },
+  "errNoHostname": {
+    "message": "No hostname"
+  },
+  "errUnknownAction": {
+    "message": "Unknown action"
+  },
+  "tipFxNeeded": {
+    "message": "Need FX rates for this conversion"
+  },
+  "tipSaveUnitFirst": {
+    "message": "Save a unit in My Unit first"
+  },
+  "tipNoPrice": {
+    "message": "No price in that selection"
+  },
+  "unitsFallback": {
+    "message": "units"
+  }
+}

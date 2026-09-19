@@ -1,0 +1,151 @@
+{
+  "extName": {
+    "message": "My Unit",
+    "description": "Extension name and brand. Keep zh_HK and zh_TW catalogs identical."
+  },
+  "extDescription": {
+    "message": "將網頁上的價錢換算成你常用的單位——自訂物品或 Yahoo 財經代碼。",
+    "description": "Store and manifest description"
+  },
+  "extTitle": {
+    "message": "My Unit",
+    "description": "Toolbar tooltip"
+  },
+  "popupLede": {
+    "message": "將游標移到價錢上，或選取後右鍵換算。儲存一個單位即可開始。",
+    "description": "Popup intro"
+  },
+  "kickerActive": {
+    "message": "使用中的單位"
+  },
+  "kickerPricesIn": {
+    "message": "價錢顯示為"
+  },
+  "statusNoUnit": {
+    "message": "尚未設定單位。請儲存自訂物品、代號或貨幣。"
+  },
+  "clearUnit": {
+    "message": "清除單位"
+  },
+  "ariaUnitType": {
+    "message": "單位類型"
+  },
+  "tabCustom": {
+    "message": "自訂"
+  },
+  "tabFinance": {
+    "message": "財經"
+  },
+  "tabCurrency": {
+    "message": "貨幣"
+  },
+  "labelName": {
+    "message": "名稱"
+  },
+  "placeholderName": {
+    "message": "拉麵 · 咖啡 · 一日開支"
+  },
+  "labelCurrency": {
+    "message": "貨幣"
+  },
+  "labelPrice": {
+    "message": "價錢"
+  },
+  "placeholderPrice": {
+    "message": "50"
+  },
+  "btnSave": {
+    "message": "儲存"
+  },
+  "labelYahooTicker": {
+    "message": "Yahoo 代號"
+  },
+  "placeholderTicker": {
+    "message": "0700.HK"
+  },
+  "btnValidateSave": {
+    "message": "驗證並儲存"
+  },
+  "labelShowPricesIn": {
+    "message": "將價錢顯示為"
+  },
+  "openPageFirst": {
+    "message": "請先開啟一般網頁"
+  },
+  "ariaDollarSite": {
+    "message": "此網站的 $$",
+    "description": "Aria label for the $ override. $$ is a literal dollar sign."
+  },
+  "ariaYenSite": {
+    "message": "此網站的 ¥"
+  },
+  "convertOnSite": {
+    "message": "在此網站換算"
+  },
+  "footQuote": {
+    "message": "報價：Yahoo Finance，約延遲 15 分鐘"
+  },
+  "footFx": {
+    "message": "匯率：Frankfurter（ECB），備用 Yahoo"
+  },
+  "selectBlank": {
+    "message": "請選擇"
+  },
+  "checkingYahoo": {
+    "message": "正在查詢 Yahoo…"
+  },
+  "menuConvertMyUnit": {
+    "message": "用 My Unit 換算"
+  },
+  "menuConvertTo": {
+    "message": "換算為 $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "ramen"
+      }
+    }
+  },
+  "errNeedNamePrice": {
+    "message": "請輸入名稱，且價錢須大於 0"
+  },
+  "errUnsupportedCurrency": {
+    "message": "不支援此貨幣"
+  },
+  "errEmptySymbol": {
+    "message": "請輸入代號"
+  },
+  "errYahooUnreachable": {
+    "message": "無法連上 Yahoo"
+  },
+  "errYahooHttp": {
+    "message": "Yahoo HTTP $STATUS$",
+    "placeholders": {
+      "status": {
+        "content": "$1",
+        "example": "404"
+      }
+    }
+  },
+  "errYahooNoPrice": {
+    "message": "Yahoo 沒有報價"
+  },
+  "errNoHostname": {
+    "message": "沒有網址"
+  },
+  "errUnknownAction": {
+    "message": "未知操作"
+  },
+  "tipFxNeeded": {
+    "message": "需要匯率才能換算"
+  },
+  "tipSaveUnitFirst": {
+    "message": "請先在 My Unit 儲存單位"
+  },
+  "tipNoPrice": {
+    "message": "選取範圍沒有價錢"
+  },
+  "unitsFallback": {
+    "message": "單位"
+  }
+}

@@ -2,7 +2,7 @@
 
 Chrome extension (Manifest V3): hover a detected price and see it in **one** unit — a custom item (ramen + price) or a [Yahoo Finance](https://finance.yahoo.com) ticker (`AAPL`, `0700.HK`, `BTC-USD`).
 
-This is v0, load-unpacked.
+This is 1.0. The popup, context menu, and tooltips follow the Chrome UI language: English or Traditional Chinese (`zh-HK` / `zh-TW`). Simplified Chinese falls back to English. Chrome Web Store listing translations are set in the developer dashboard, not by `_locales`.
 
 ## What it does
 
@@ -22,7 +22,7 @@ Yahoo quotes are unofficial, often delayed, and can break without notice. Custom
 5. Allow website access when Chrome asks
 6. Open the dogfood pages below
 
-## v0 dogfood
+## 1.0 dogfood
 
 | Page | What should convert |
 | --- | --- |

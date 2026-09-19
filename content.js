@@ -21,7 +21,6 @@
 ]);
 
 const HIGHLIGHT_NAME = "uce-price";
-const FX_NEEDED = "Need FX rates for this conversion";
 const MAX_SCAN_ROOTS = 20;
 
 let state = null;
@@ -80,15 +79,15 @@ function conversionShort(amount, currency) {
     : state.unit.type === "currency"
       ? state.unit.currency
       : state.unit.type === "yahoo"
-        ? state.unit.shortName || state.unit.symbol || "units"
-        : state.unit.name || state.unit.symbol || "units";
+        ? state.unit.shortName || state.unit.symbol || chrome.i18n.getMessage("unitsFallback")
+        : state.unit.name || state.unit.symbol || chrome.i18n.getMessage("unitsFallback");
   return `${formatted} ${label}`;
 }
 
 function conversionText(amount, currency) {
   if (!state?.unit) return null;
   const short = conversionShort(amount, currency);
-  if (!short) return FX_NEEDED;
+  if (!short) return chrome.i18n.getMessage("tipFxNeeded");
   if (state.unit.type !== "yahoo") return short;
   const asOf = UCE.formatAsOf(state.unit.asOf);
   return asOf ? `${short} · ${asOf}` : short;
@@ -760,18 +759,18 @@ async function handleConvertSelection(raw) {
   }
   const rect = selectionRect();
   if (!unitReady()) {
-    showTooltipAtRect(rect, "Save a unit in My Unit first");
+    showTooltipAtRect(rect, chrome.i18n.getMessage("tipSaveUnitFirst"));
     pinTooltip(4000);
     return;
   }
   const parsed = UCE.parsePriceString(raw, parseCtx());
   if (!parsed) {
-    showTooltipAtRect(rect, "No price in that selection");
+    showTooltipAtRect(rect, chrome.i18n.getMessage("tipNoPrice"));
     pinTooltip(4000);
     return;
   }
   const text = conversionText(parsed.amount, parsed.currency);
-  showTooltipAtRect(rect, text || FX_NEEDED);
+  showTooltipAtRect(rect, text || chrome.i18n.getMessage("tipFxNeeded"));
   pinTooltip(4000);
 }
 

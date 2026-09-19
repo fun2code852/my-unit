@@ -18,6 +18,22 @@ let currentHost = "";
 let state = null;
 let tabSynced = false;
 
+function applyI18n(root = document) {
+  document.documentElement.lang = chrome.i18n.getUILanguage();
+  for (const el of root.querySelectorAll("[data-i18n]")) {
+    el.textContent = chrome.i18n.getMessage(el.dataset.i18n);
+  }
+  for (const el of root.querySelectorAll("[data-i18n-placeholder]")) {
+    el.placeholder = chrome.i18n.getMessage(el.dataset.i18nPlaceholder);
+  }
+  for (const el of root.querySelectorAll("[data-i18n-aria]")) {
+    el.setAttribute("aria-label", chrome.i18n.getMessage(el.dataset.i18nAria));
+  }
+  for (const el of root.querySelectorAll("[data-i18n-title]")) {
+    el.title = chrome.i18n.getMessage(el.dataset.i18nTitle);
+  }
+}
+
 function describeCurrency(code) {
   const meta = UCE.CURRENCY_META[code];
   if (!meta) return code || "";
@@ -56,7 +72,7 @@ function paintSymbolSettings() {
   const resolvedDollar = UCE.resolveDollar(currentHost, state.defaultDollar, dollarOverrides);
   const resolvedYen = UCE.resolveYen(currentHost, state.defaultYen, yenOverrides);
 
-  siteHost.textContent = currentHost || "Open a normal page first";
+  siteHost.textContent = currentHost || chrome.i18n.getMessage("openPageFirst");
   siteDollar.value = resolvedDollar;
   siteYen.value = resolvedYen;
   siteDollar.disabled = !currentHost;
@@ -111,7 +127,7 @@ function tabForUnit(unit) {
 }
 
 function describeUnit(unit) {
-  if (!unit) return "No unit yet. Save a custom item, a ticker, or a currency.";
+  if (!unit) return chrome.i18n.getMessage("statusNoUnit");
   if (unit.type === "currency") {
     const meta = UCE.CURRENCY_META[unit.currency];
     return `${meta?.flag || ""} ${unit.currency} · ${meta?.symbol || ""}`.replace(/^\s+/, "");
@@ -145,7 +161,8 @@ function paintStatus(unit, error) {
     return;
   }
   unitKicker.hidden = false;
-  unitKicker.textContent = unit.type === "currency" ? "Prices in" : "Active unit";
+  unitKicker.textContent =
+    unit.type === "currency" ? chrome.i18n.getMessage("kickerPricesIn") : chrome.i18n.getMessage("kickerActive");
   statusTextEl.textContent = describeUnit(unit);
   statusTextEl.classList.remove("muted");
   statusEl.classList.add("has-unit");
@@ -217,7 +234,7 @@ customForm.addEventListener("submit", async (event) => {
 
 yahooForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  paintStatus(null, "Checking Yahoo…");
+  paintStatus(null, chrome.i18n.getMessage("checkingYahoo"));
   const res = await chrome.runtime.sendMessage({
     action: "validateYahoo",
     symbol: document.getElementById("yahoo-symbol").value,
@@ -277,8 +294,9 @@ clearUnitBtn.addEventListener("click", async () => {
   refresh();
 });
 
-fillSelect(customCurrency, null, "Select");
-fillSelect(displayCurrency, null, "Select");
+applyI18n();
+fillSelect(customCurrency, null, chrome.i18n.getMessage("selectBlank"));
+fillSelect(displayCurrency, null, chrome.i18n.getMessage("selectBlank"));
 fillSelect(siteDollar, UCE.DOLLAR_CODES);
 fillSelect(siteYen, UCE.YEN_CODES);
 refresh();
