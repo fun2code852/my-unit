@@ -4,7 +4,7 @@
     "description": "Extension name and brand. Keep zh_HK and zh_TW catalogs identical."
   },
   "extDescription": {
-    "message": "Hover webpage prices to see them in one favourite unit — a custom item or a Yahoo Finance symbol.",
+    "message": "Hover webpage prices to see them in one favourite unit — a custom item, a Yahoo Finance symbol, or a currency.",
     "description": "Store and manifest description"
   },
   "extTitle": {
@@ -95,7 +95,7 @@
     "message": "Buy me a coffee"
   },
   "githubStar": {
-    "message": "Github Star"
+    "message": "Github ⭐"
   },
   "selectBlank": {
     "message": "Select"

@@ -4,7 +4,7 @@ My Unit is a browser extension. It does not have an account system and it does n
 
 ## What is read on the page
 
-A content script looks at visible text (and Amazon `.a-price` widgets) to find amounts that already include a currency signal. Matching is done locally. **Page HTML, URLs, and converted values are not sent to us.** We do not operate a backend.
+A content script looks at prices and currency marks on the page to find amounts that already include a currency signal. Matching is done locally. **Page HTML, URLs, and converted values are not sent to us.** We do not operate a backend.
 
 ## What is fetched from the network
 

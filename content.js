@@ -35,6 +35,8 @@ let hoverPayload = null;
 let pinUntil = 0;
 let moveRaf = 0;
 let priceRanges = [];
+let pageHints = { dollar: null, yen: null, ready: false };
+const HINT_TEXT_RE = /[$¥円]|USD|HKD|TWD|NTD|SGD|AUD|CAD|JPY|CNY|RMB|CNH/i;
 const pendingRoots = new Set();
 const strikeCache = new WeakMap();
 const markedEls = new WeakSet();
@@ -57,7 +59,89 @@ function parseCtx() {
     overrides: state?.overrides || {},
     defaultYen: state?.defaultYen || UCE.DEFAULT_YEN_CURRENCY,
     yenOverrides: state?.yenOverrides || {},
+    pageDollar: pageHints.dollar,
+    pageYen: pageHints.yen,
   };
+}
+
+function skipHarvestEl(el) {
+  if (!el || el.nodeType !== Node.ELEMENT_NODE) return true;
+  if (SKIP_TAGS.has(el.tagName)) return true;
+  if (el.isContentEditable) return true;
+  if (el === tooltipHost) return true;
+  if (el.closest("[contenteditable='true'], [contenteditable='']")) return true;
+  return false;
+}
+
+function addHintCode(code, dollarCounts, yenCounts) {
+  const raw = String(code || "")
+    .trim()
+    .toUpperCase();
+  const c = UCE.ISO_ALIASES[raw] || raw;
+  if (UCE.DOLLAR_CODES.includes(c)) dollarCounts[c] = (dollarCounts[c] || 0) + 1;
+  if (UCE.YEN_CODES.includes(c)) yenCounts[c] = (yenCounts[c] || 0) + 1;
+}
+
+function collectJsonLdCurrencies(node, dollarCounts, yenCounts, depth) {
+  if (!node || typeof node !== "object" || depth > 12) return;
+  if (Array.isArray(node)) {
+    for (const item of node) collectJsonLdCurrencies(item, dollarCounts, yenCounts, depth + 1);
+    return;
+  }
+  if (typeof node.priceCurrency === "string") addHintCode(node.priceCurrency, dollarCounts, yenCounts);
+  for (const value of Object.values(node)) {
+    if (value && typeof value === "object") collectJsonLdCurrencies(value, dollarCounts, yenCounts, depth + 1);
+  }
+}
+
+function tallyMetaCurrencies(dollarCounts, yenCounts) {
+  const og = document.querySelector('meta[property="og:price:currency"], meta[itemprop="priceCurrency"]');
+  if (og?.content) addHintCode(og.content, dollarCounts, yenCounts);
+  let n = 0;
+  for (const el of document.querySelectorAll('script[type="application/ld+json"]')) {
+    if (n++ > 30) break;
+    try {
+      collectJsonLdCurrencies(JSON.parse(el.textContent), dollarCounts, yenCounts, 0);
+    } catch {
+      /* page JSON-LD is often truncated */
+    }
+  }
+}
+
+function harvestPageHints(root) {
+  const dollarCounts = {};
+  const yenCounts = {};
+  const scope = root && root.nodeType === Node.ELEMENT_NODE ? root : document.body;
+  if (!scope) {
+    pageHints = { dollar: null, yen: null, ready: false };
+    return pageHints;
+  }
+  const ctx = {
+    hostname: hostName(),
+    defaultDollar: state?.defaultDollar || UCE.DEFAULT_DOLLAR_CURRENCY,
+    overrides: {},
+    defaultYen: state?.defaultYen || UCE.DEFAULT_YEN_CURRENCY,
+    yenOverrides: {},
+  };
+  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || skipHarvestEl(parent)) return NodeFilter.FILTER_REJECT;
+      if (!node.textContent || !HINT_TEXT_RE.test(node.textContent)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  let node;
+  while ((node = walker.nextNode())) {
+    UCE.tallyExplicitCurrencies(node.textContent, dollarCounts, yenCounts, ctx);
+  }
+  tallyMetaCurrencies(dollarCounts, yenCounts);
+  pageHints = {
+    dollar: UCE.majorityCode(dollarCounts, UCE.DOLLAR_CODES),
+    yen: UCE.majorityCode(yenCounts, UCE.YEN_CODES),
+    ready: true,
+  };
+  return pageHints;
 }
 
 function unitReady() {
@@ -549,6 +633,8 @@ function scan(root) {
   if (!live()) return;
   const target = expandScanRoot(root);
   if (!target || !target.isConnected) return;
+  const full = target === document.body || target === document.documentElement;
+  if (full || !pageHints.ready) harvestPageHints(document.body);
   unmarkElementsIn(target);
   pruneRangesIn(target);
   processAmazon(target);
@@ -871,6 +957,10 @@ async function handleStorageChange(changes) {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.action === "ping") {
     sendResponse({ ok: true });
+    return;
+  }
+  if (message?.action === "getPageHints") {
+    sendResponse(harvestPageHints(document.body));
     return;
   }
   if (message?.action === "teardown") {

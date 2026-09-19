@@ -30,7 +30,7 @@ Shopping (or Productivity if the dashboard prefers a tools listing).
 
 ### Short description (manifest, ≤132 characters)
 
-Hover webpage prices to see them in one favourite unit — a custom item or a Yahoo Finance symbol.
+Hover webpage prices to see them in one favourite unit — a custom item, a Yahoo Finance symbol, or a currency.
 
 ### Detailed description
 
@@ -44,7 +44,7 @@ Save a unit to start. Chrome then asks for website access so prices can be under
 
 Live tickers poll Yahoo Finance about every 15 minutes (quotes are unofficial and often delayed). FX uses Frankfurter (ECB daily rates); currencies the ECB omits, such as TWD, fall back to Yahoo. Nothing from the page is uploaded.
 
-Default bare $ is HKD. Per-site $ and ¥ overrides live in the popup.
+Unmarked $ and ¥ follow marked prices on the page when those marks agree; otherwise $ is HKD. A per-site $ or ¥ in the popup wins over that guess.
 
 ### Single purpose
 
@@ -54,7 +54,7 @@ Convert detected webpage prices into one user-chosen unit.
 
 ### Short description (manifest)
 
-將網頁上的價錢換算成你常用的單位——自訂物品或 Yahoo 財經代碼。
+將網頁上的價錢換算成你常用的單位——自訂物品、Yahoo 財經代碼或貨幣。
 
 ### Detailed description
 
@@ -68,7 +68,7 @@ My Unit 把網頁上的價錢，換成你選定的一個單位：自訂物品（
 
 即時代碼約每 15 分鐘向 Yahoo Finance 查價（非官方報價，常有延遲）。匯率使用 Frankfurter（歐洲央行每日匯率）；ECB 沒有的貨幣（例如 TWD）會改用 Yahoo。頁面內容不會上傳。
 
-沒有標記的 $ 預設為港元。可在彈出視窗為個別網站覆寫 $ 與 ¥。
+沒有標記的 $ 與 ¥ 會跟頁面上已標明的價錢走；否則 $ 為港元。可在彈出視窗為個別網站覆寫 $ 與 ¥。
 
 ### Single purpose
 
@@ -80,7 +80,7 @@ Answer the dashboard from [PRIVACY.md](../PRIVACY.md):
 
 - Personally identifiable information: no
 - Health, financial, authentication, personal communications: no
-- Web history / user activity: the content script reads visible prices on pages you allow, locally only. Page HTML, URLs, and converted values are not sent to us.
+- Web history / user activity: the content script reads prices and currency marks on pages you allow, locally only. Page HTML, URLs, and converted values are not sent to us.
 - Location, webcams, etc.: no
 - Remote code: no
 - Data sold or used for advertising / creditworthiness: no

@@ -16,9 +16,9 @@ Hover an underlined price, or select one and right-click **Convert**. The origin
 - Optional website access: underline prices only on sites you allow. Right-click Convert still works on the current tab without that grant.
 - English and Traditional Chinese UI (`en`, `zh-HK`, `zh-TW`), following Chrome’s language. Simplified Chinese falls back to English.
 
-Default bare `$` is **HKD**. FX uses [Frankfurter](https://frankfurter.dev) (ECB daily rates); currencies the ECB omits (such as TWD) fall back to Yahoo. Live tickers poll Yahoo’s unofficial chart API about every 15 minutes. Quotes can be delayed or break; custom units still work if Yahoo is down. Nothing from the page is uploaded.
+Unmarked `$` and `¥` follow marked prices on the page when those marks agree (for example US$ or HK$). Otherwise `$` is HKD. A per-site `$` or `¥` in the popup wins over that guess, and applies to other dollar-style or yen-style prices on that site. FX uses [Frankfurter](https://frankfurter.dev) (ECB daily rates); currencies the ECB omits (such as TWD) fall back to Yahoo. Live tickers poll Yahoo’s unofficial chart API about every 15 minutes. Quotes can be delayed or break; custom units still work if Yahoo is down. Nothing from the page is uploaded.
 
-Amazon list / “was” prices and CSS `line-through` amounts are skipped. Text prices use the CSS Highlight API (the page DOM is not wrapped). Amazon `.a-price` widgets are handled the same way as [Opportunity Cost](https://github.com/TFTC-Holdings-Inc/opportunity-cost) (reimplemented, not copied).
+Amazon list / “was” prices and CSS `line-through` amounts are skipped. Amazon `.a-price` widgets are handled the same way as [Opportunity Cost](https://github.com/TFTC-Holdings-Inc/opportunity-cost) (reimplemented, not copied).
 
 ## Install
 
@@ -67,7 +67,7 @@ These are the three live-site scenes used for the store listing (screenshots sta
 | [Tabelog Tokyo](https://tabelog.com/tokyo/) | Currency: HKD | A listing `￥4,000` → HKD |
 | [28Hse rent](https://www.28hse.com/rent) | Finance: `BTC-USD` | Monthly `租 $20,500` (HKD) → Bitcoin |
 
-Stay on the Japanese Tabelog host so yen amounts remain `￥`. Default bare `$` is HKD, which is what 28Hse uses.
+Stay on the Japanese Tabelog host so yen amounts remain `￥`. On 28Hse, unmarked `$` is HKD.
 
 ## Contributing
 
