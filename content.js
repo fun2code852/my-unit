@@ -36,7 +36,7 @@ let pinUntil = 0;
 let moveRaf = 0;
 let priceRanges = [];
 let pageHints = { dollar: null, yen: null, ready: false };
-const HINT_TEXT_RE = /[$¥円]|USD|HKD|TWD|NTD|SGD|AUD|CAD|JPY|CNY|RMB|CNH/i;
+const HINT_TEXT_RE = /[$¥￥円]|USD|HKD|TWD|NTD|SGD|AUD|CAD|JPY|CNY|RMB|CNH/i;
 const pendingRoots = new Set();
 const strikeCache = new WeakMap();
 const markedEls = new WeakSet();
@@ -381,11 +381,24 @@ function elementRoot(root) {
   return root.parentElement || document.body;
 }
 
+function isSplitScanPiece(el) {
+  if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+  const text = UCE.normalizeNbsp(el.textContent || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return UCE.isCurrencyToken(text) || UCE.isAmountText(text) || UCE.isFractionDigits(text);
+}
+
 /** Inner Amazon/split mutations should rebind the host, not a child. */
 function expandScanRoot(root) {
   const el = elementRoot(root);
   if (!el || el === document.body || el === document.documentElement) return el;
-  return el.closest?.(".a-price, .uce-price") || el;
+  const host = el.closest?.(".a-price, .uce-price");
+  if (host) return host;
+  if (!isSplitScanPiece(el)) return el;
+  const parent = el.parentElement;
+  if (!parent || parent === document.body || parent === document.documentElement) return el;
+  return parent;
 }
 
 function skipWalkEl(el) {
@@ -525,9 +538,24 @@ function markSplitPiece(textNode, markEl, raw, amount, currency) {
   }
 }
 
+function fractionFromNextSibling(candidate) {
+  const next = skipEmptySiblings(candidate, "next");
+  if (!next) return null;
+  if (next.nodeType === Node.ELEMENT_NODE && (next.closest(".uce-price") || isStruckThrough(next))) return null;
+  if (!UCE.isFractionDigits(next.textContent || "")) return null;
+  if (next.nodeType === Node.TEXT_NODE) {
+    return { raw: next.textContent, textNode: next, markEl: next.parentElement };
+  }
+  const textNode = [...next.childNodes].find(
+    (node) => node.nodeType === Node.TEXT_NODE && UCE.isFractionDigits(node.textContent),
+  );
+  return { raw: next.textContent, textNode: textNode || null, markEl: next };
+}
+
 /**
  * Currency-only text next to an amount: element sibling, nested amount, or
- * following text. No site class names. Never marks a common ancestor.
+ * following text. Trailing-decimal wholes (`89.`) join the next 1–2 digit
+ * sibling. No site class names. Never marks a common ancestor.
  */
 function processSplitSiblings(root) {
   if (!live()) return;
@@ -549,8 +577,12 @@ function processSplitSiblings(root) {
     const currencyEl = node.parentElement;
     if (!currencyEl || currencyEl.closest(".uce-price")) continue;
     if (isStruckThrough(currencyEl)) continue;
+    const parentText = currencyEl.textContent || "";
+    if (!UCE.isCurrencyToken(parentText) && UCE.findPrices(parentText, parseCtx()).length) continue;
 
     const candidates = [
+      skipEmptySiblings(currencyEl, "next"),
+      skipEmptySiblings(currencyEl, "prev"),
       skipEmptySiblings(node, "next"),
       skipEmptySiblings(node, "prev"),
       currencyEl.nextElementSibling,
@@ -564,10 +596,20 @@ function processSplitSiblings(root) {
       const found = amountFromCandidate(candidate);
       if (!found || !found.markEl) continue;
       if (isStruckThrough(found.markEl)) continue;
-      const parsed = UCE.parsePriceString(`${node.textContent} ${found.amount}`, parseCtx());
+      let amountRaw = found.amount;
+      let fraction = null;
+      if (UCE.isIncompleteWhole(found.amount)) {
+        fraction = fractionFromNextSibling(candidate);
+        if (!fraction) continue;
+        amountRaw = UCE.assembleWholeFraction(found.amount, fraction.raw);
+      }
+      const parsed = UCE.parsePriceString(`${node.textContent} ${amountRaw}`, parseCtx());
       if (!parsed) continue;
       markSplitPiece(node, currencyEl, node.textContent, parsed.amount, parsed.currency);
       markSplitPiece(found.textNode, found.markEl, found.amount, parsed.amount, parsed.currency);
+      if (fraction) {
+        markSplitPiece(fraction.textNode, fraction.markEl, fraction.raw, parsed.amount, parsed.currency);
+      }
       break;
     }
   }
@@ -902,9 +944,56 @@ function selectionRect() {
   return { top: 16, bottom: 44, left: 16, right: 16 };
 }
 
+function runtimeAlive() {
+  try {
+    return Boolean(chrome.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
+function isDisconnectError(err) {
+  const msg = err instanceof Error ? err.message : String(err || "");
+  return /Receiving end does not exist|message channel closed|Extension context invalidated/i.test(msg);
+}
+
+async function requestState() {
+  if (!runtimeAlive()) return null;
+  try {
+    const res = await chrome.runtime.sendMessage({ action: "getState" });
+    if (res?.state) return res;
+  } catch (err) {
+    if (!isDisconnectError(err)) throw err;
+  }
+  try {
+    const stored = await chrome.storage.local.get({
+      unit: null,
+      defaultDollar: UCE.DEFAULT_DOLLAR_CURRENCY,
+      defaultYen: UCE.DEFAULT_YEN_CURRENCY,
+      overrides: {},
+      yenOverrides: {},
+      pausedHosts: [],
+      fx: null,
+    });
+    return {
+      state: {
+        unit: stored.unit ?? null,
+        defaultDollar: stored.defaultDollar || UCE.DEFAULT_DOLLAR_CURRENCY,
+        defaultYen: stored.defaultYen || UCE.DEFAULT_YEN_CURRENCY,
+        overrides: stored.overrides || {},
+        yenOverrides: stored.yenOverrides || {},
+        pausedHosts: stored.pausedHosts || [],
+        fx: stored.fx || null,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function handleConvertSelection(raw) {
   if (!state) {
-    const res = await chrome.runtime.sendMessage({ action: "getState" });
+    const res = await requestState();
     state = res?.state;
   }
   const rect = selectionRect();
@@ -925,7 +1014,7 @@ async function handleConvertSelection(raw) {
 }
 
 async function refreshState() {
-  const res = await chrome.runtime.sendMessage({ action: "getState" });
+  const res = await requestState();
   if (res?.state) state = res.state;
 }
 
@@ -988,17 +1077,35 @@ async function boot() {
   if (tooltipHost) tooltipHost.remove();
   tooltipHost = null;
   tooltipEl = null;
-  const res = await chrome.runtime.sendMessage({ action: "getState" });
-  state = res?.state;
+  try {
+    if (highlightApi()) CSS.highlights.delete(HIGHLIGHT_NAME);
+  } catch {
+    /* previous isolated world may have left a dead highlight */
+  }
+  document.querySelectorAll(MARK_SEL).forEach(unmarkOne);
+  priceRanges = [];
+
+  let res = await requestState();
+  for (let i = 0; !res?.state && i < 4; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    res = await requestState();
+  }
+  if (!res?.state) return;
+  state = res.state;
   applyLiveState();
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
-  handleStorageChange(changes).catch((err) => console.warn("UCE storage", err));
+  if (!runtimeAlive()) return;
+  handleStorageChange(changes).catch((err) => {
+    if (!isDisconnectError(err)) console.warn("UCE storage", err);
+  });
 });
 
 document.addEventListener("visibilitychange", onVisibilityChange);
 
-boot().catch((err) => console.warn("UCE content", err));
+boot().catch((err) => {
+  if (!isDisconnectError(err)) console.warn("UCE content", err);
+});
 })();

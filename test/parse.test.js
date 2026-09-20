@@ -46,6 +46,30 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
   assert(UCE.isAmountText(" 3599 "), "nested 3599 is amount-only");
   const nested = parsePriceString("HK$ 3599", hkCtx);
   assert(nested && nested.amount === 3599 && nested.currency === "HKD", "HK$ + nested 3599");
+  const listed = parsePriceString("HK$ 198,000", hkCtx);
+  assert(listed && listed.amount === 198000 && listed.currency === "HKD", "HK$ 198,000 complete split");
+  const fromPrice = parsePriceString("從 HK$383.00 HKD 起", hkCtx);
+  assert(fromPrice && fromPrice.amount === 383 && fromPrice.currency === "HKD", "Shopify 從 HK$383.00 HKD 起");
+}
+
+{
+  assert(UCE.isIncompleteWhole("89."), "89. is an incomplete whole");
+  assert(UCE.isIncompleteWhole(" 89, "), "89, is an incomplete whole");
+  assert(!UCE.isIncompleteWhole("89.00"), "89.00 is complete");
+  assert(!UCE.isIncompleteWhole("4,480"), "4,480 is complete");
+  assert(!UCE.isIncompleteWhole("198,000"), "198,000 is complete");
+  assert(UCE.isFractionDigits("00"), "00 is fraction digits");
+  assert(UCE.isFractionDigits("9"), "9 is fraction digits");
+  assert(!UCE.isFractionDigits("000"), "000 is not a 1–2 digit fraction");
+  assert(!UCE.isFractionDigits("00a"), "00a is not fraction digits");
+  assertEq(UCE.assembleWholeFraction("89.", "00"), "89.00", "assemble 89. + 00");
+  assertEq(UCE.assembleWholeFraction("89,", "00"), "89,00", "assemble 89, + 00");
+  const yen = parsePriceString("¥ " + UCE.assembleWholeFraction("89.", "00"), {
+    hostname: "www.amazon.co.jp",
+  });
+  assert(yen && yen.amount === 89 && yen.currency === "JPY", "¥ 89.00 from trailing-decimal pieces");
+  const euro = parsePriceString("€ " + UCE.assembleWholeFraction("89,", "00"), hkCtx);
+  assert(euro && Math.abs(euro.amount - 89) < 1e-9 && euro.currency === "EUR", "€ 89,00 from trailing-decimal pieces");
 }
 
 {
@@ -100,6 +124,23 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
   assert(yenOverride && yenOverride.currency === "CNY", "per-domain ¥ override");
   assertEq(parsePriceString("CN¥88", { hostname: "www.example.com" }).currency, "CNY", "CN¥ is always CNY");
   assertEq(parsePriceString("円1200", { hostname: "www.example.com", defaultYen: "CNY" }).currency, "JPY", "円 is always JPY");
+  assert(UCE.isCurrencyToken("￥"), "fullwidth ￥ is a yen token");
+  assertEq(
+    parsePriceString("￥89.00", { hostname: "item.jd.com", defaultYen: "CNY" }).amount,
+    89,
+    "JD ￥89.00 amount",
+  );
+  assertEq(
+    parsePriceString("￥89.00", { hostname: "item.jd.com", defaultYen: "CNY" }).currency,
+    "CNY",
+    "JD ￥ follows yen default",
+  );
+  assertEq(
+    parsePriceString("￥ " + UCE.assembleWholeFraction("89.", "00"), { hostname: "item.jd.com", defaultYen: "CNY" })
+      .amount,
+    89,
+    "JD ￥ + 89. + 00 assembles",
+  );
 }
 
 {
