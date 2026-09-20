@@ -192,6 +192,7 @@ function ensureTooltip() {
   tooltipHost.style.setProperty("pointer-events", "none", "important");
   tooltipHost.style.setProperty("z-index", "2147483646", "important");
   tooltipHost.hidden = true;
+  tooltipHost.style.setProperty("display", "none", "important");
   const shadow = tooltipHost.attachShadow({ mode: "closed" });
   const style = document.createElement("style");
   style.textContent = TOOLTIP_CSS;
@@ -202,10 +203,17 @@ function ensureTooltip() {
   return tooltipEl;
 }
 
+function setTooltipVisible(visible) {
+  if (!tooltipHost) return;
+  tooltipHost.hidden = !visible;
+  // Shadow content does not stop the host matching page rules such as `div:empty { display: none }`.
+  tooltipHost.style.setProperty("display", visible ? "block" : "none", "important");
+}
+
 function showTooltipAtRect(rect, text) {
   const tip = ensureTooltip();
   if (tip.textContent !== text) tip.textContent = text;
-  tooltipHost.hidden = false;
+  setTooltipVisible(true);
   const tipHeight = tooltipHost.offsetHeight || 28;
   const tipWidth = Math.min(tooltipHost.offsetWidth || 160, 280);
   const above = rect.top - tipHeight - 8;
@@ -219,7 +227,7 @@ function showTooltipAtRect(rect, text) {
 function hideTooltip() {
   hoverPayload = null;
   lastHover = null;
-  if (tooltipHost) tooltipHost.hidden = true;
+  setTooltipVisible(false);
 }
 
 function pinTooltip(ms) {
@@ -794,7 +802,7 @@ function onPointerOut(event) {
   if (next) return;
   lastHover = null;
   hoverPayload = null;
-  if (tooltipHost) tooltipHost.hidden = true;
+  setTooltipVisible(false);
 }
 
 function onPointerMove(event) {
