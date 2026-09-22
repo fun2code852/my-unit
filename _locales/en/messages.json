@@ -51,6 +51,15 @@
   "labelPrice": {
     "message": "Price"
   },
+  "quoteAsOf": {
+    "message": "As of $DATE$",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "Sep 22, 4:08 PM"
+      }
+    }
+  },
   "placeholderPrice": {
     "message": "50"
   },

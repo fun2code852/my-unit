@@ -51,6 +51,15 @@
   "labelPrice": {
     "message": "價錢"
   },
+  "quoteAsOf": {
+    "message": "截至 $DATE$",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "9月22日 下午4:08"
+      }
+    }
+  },
   "placeholderPrice": {
     "message": "50"
   },

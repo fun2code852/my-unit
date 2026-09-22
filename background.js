@@ -128,6 +128,8 @@ async function fetchYahoo(symbol) {
       const meta = data?.chart?.result?.[0]?.meta;
       const price = meta?.regularMarketPrice;
       const currency = meta?.currency;
+      const marketTime = Number(meta?.regularMarketTime);
+      const asOf = Number.isFinite(marketTime) && marketTime > 0 ? marketTime * 1000 : null;
       if (!Number.isFinite(price) || price <= 0 || !currency) {
         lastError = chrome.i18n.getMessage("errYahooNoPrice");
         continue;
@@ -140,7 +142,8 @@ async function fetchYahoo(symbol) {
         price,
         currency: String(currency).toUpperCase(),
         priceHint: meta.priceHint,
-        asOf: meta.regularMarketTime ? meta.regularMarketTime * 1000 : Date.now(),
+        asOf,
+        asOfSource: asOf ? "market" : null,
       };
     } catch {
       lastError = chrome.i18n.getMessage("errYahooUnreachable");

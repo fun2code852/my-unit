@@ -42,7 +42,7 @@ const strikeCache = new WeakMap();
 const markedEls = new WeakSet();
 
 const TOOLTIP_CSS =
-  "#t{all:initial;display:block;box-sizing:border-box;max-width:min(280px,calc(100vw - 16px));padding:6px 10px;border-radius:6px;background:#c54546;color:#fff;font-size:12px;line-height:1.35;font-family:HelveticaNeueCustom,\"Helvetica Neue\",Helvetica,sans-serif;pointer-events:none!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}";
+  "#t{all:initial;display:block;box-sizing:border-box;max-width:min(280px,calc(100vw - 16px));padding:6px 10px;border-radius:6px;background:#c54546;color:#fff;font-size:12px;line-height:1.35;font-family:HelveticaNeueCustom,\"Helvetica Neue\",Helvetica,sans-serif;pointer-events:none!important;white-space:pre-line;overflow-wrap:anywhere}";
 
 function hostName() {
   try {
@@ -178,8 +178,8 @@ function conversionText(amount, currency) {
   const short = conversionShort(amount, currency);
   if (!short) return chrome.i18n.getMessage("tipFxNeeded");
   if (state.unit.type !== "yahoo") return short;
-  const asOf = UCE.formatAsOf(state.unit.asOf);
-  return asOf ? `${short} · ${asOf}` : short;
+  const asOf = state.unit.asOfSource === "market" ? UCE.formatAsOf(state.unit.asOf) : "";
+  return asOf ? `${short}\n${chrome.i18n.getMessage("quoteAsOf", asOf)}` : short;
 }
 
 function ensureTooltip() {

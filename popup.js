@@ -136,8 +136,8 @@ function describeUnit(unit) {
   }
   if (unit.type === "yahoo") {
     const hint = UCE.formatQuote(unit.price, unit.priceHint);
-    const asOf = UCE.formatAsOf(unit.asOf);
-    return `${unit.symbol} · ${unit.shortName || ""} · ${unit.currency} ${hint}${asOf ? ` · ${asOf}` : ""}`.replace(
+    const asOf = unit.asOfSource === "market" ? UCE.formatAsOf(unit.asOf) : "";
+    return `${unit.symbol} · ${unit.shortName || ""} · ${unit.currency} ${hint}${asOf ? ` · ${chrome.i18n.getMessage("quoteAsOf", asOf)}` : ""}`.replace(
       / ·  · /g,
       " · ",
     );
