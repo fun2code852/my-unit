@@ -98,6 +98,17 @@ async function refreshFx() {
   return fx;
 }
 
+function yahooHttpError(status) {
+  let key = "errYahooRequestFailed";
+  if (status === 400) key = "errYahooInvalidTicker";
+  else if (status === 404) key = "errYahooTickerNotFound";
+  else if (status === 401 || status === 403) key = "errYahooAccessDenied";
+  else if (status === 408 || status === 504) key = "errYahooTimeout";
+  else if (status === 429) key = "errYahooRateLimited";
+  else if (status >= 500 && status < 600) key = "errYahooUnavailable";
+  return chrome.i18n.getMessage(key);
+}
+
 async function fetchYahoo(symbol) {
   const encoded = encodeURIComponent(String(symbol || "").trim());
   if (!encoded) throw new Error(chrome.i18n.getMessage("errEmptySymbol"));
@@ -110,7 +121,7 @@ async function fetchYahoo(symbol) {
         referrerPolicy: "no-referrer",
       });
       if (!res.ok) {
-        lastError = chrome.i18n.getMessage("errYahooHttp", [String(res.status)]);
+        lastError = yahooHttpError(res.status);
         continue;
       }
       const data = await res.json();

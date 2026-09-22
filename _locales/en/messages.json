@@ -125,22 +125,34 @@
     "message": "Unsupported currency"
   },
   "errEmptySymbol": {
-    "message": "Empty symbol"
+    "message": "Enter a Yahoo ticker."
   },
   "errYahooUnreachable": {
-    "message": "Yahoo unreachable"
+    "message": "Could not connect to Yahoo. Check your connection and try again."
   },
-  "errYahooHttp": {
-    "message": "Yahoo HTTP $STATUS$",
-    "placeholders": {
-      "status": {
-        "content": "$1",
-        "example": "404"
-      }
-    }
+  "errYahooInvalidTicker": {
+    "message": "Yahoo could not understand this ticker. Check the symbol and try again."
+  },
+  "errYahooTickerNotFound": {
+    "message": "Ticker not found on Yahoo. Check the symbol and try again."
+  },
+  "errYahooAccessDenied": {
+    "message": "Yahoo blocked the quote request. Please try again later."
+  },
+  "errYahooTimeout": {
+    "message": "Yahoo took too long to respond. Please try again."
+  },
+  "errYahooRateLimited": {
+    "message": "Yahoo is receiving too many requests. Please wait a few minutes and try again."
+  },
+  "errYahooUnavailable": {
+    "message": "Yahoo is temporarily unavailable. Please try again later."
+  },
+  "errYahooRequestFailed": {
+    "message": "Yahoo could not load this quote. Please try again later."
   },
   "errYahooNoPrice": {
-    "message": "Yahoo had no price"
+    "message": "Yahoo returned no price for this ticker. Check the symbol or try again later."
   },
   "errNoHostname": {
     "message": "No hostname"
