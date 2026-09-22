@@ -36,13 +36,13 @@ let pinUntil = 0;
 let moveRaf = 0;
 let priceRanges = [];
 let pageHints = { dollar: null, yen: null, ready: false };
-const HINT_TEXT_RE = /[$¥円]|USD|HKD|TWD|NTD|SGD|AUD|CAD|JPY|CNY|RMB|CNH/i;
+const HINT_TEXT_RE = /[$¥￥円]|USD|HKD|TWD|NTD|SGD|AUD|CAD|JPY|CNY|RMB|CNH/i;
 const pendingRoots = new Set();
 const strikeCache = new WeakMap();
 const markedEls = new WeakSet();
 
 const TOOLTIP_CSS =
-  "#t{all:initial;display:block;box-sizing:border-box;max-width:min(280px,calc(100vw - 16px));padding:6px 10px;border-radius:6px;background:#c54546;color:#fff;font-size:12px;line-height:1.35;font-family:HelveticaNeueCustom,\"Helvetica Neue\",Helvetica,sans-serif;pointer-events:none!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}";
+  "#t{all:initial;display:block;box-sizing:border-box;max-width:min(280px,calc(100vw - 16px));padding:6px 10px;border-radius:6px;background:#c54546;color:#fff;font-size:12px;line-height:1.35;font-family:HelveticaNeueCustom,\"Helvetica Neue\",Helvetica,sans-serif;pointer-events:none!important;white-space:pre-line;overflow-wrap:anywhere}";
 
 function hostName() {
   try {
@@ -178,8 +178,8 @@ function conversionText(amount, currency) {
   const short = conversionShort(amount, currency);
   if (!short) return chrome.i18n.getMessage("tipFxNeeded");
   if (state.unit.type !== "yahoo") return short;
-  const asOf = UCE.formatAsOf(state.unit.asOf);
-  return asOf ? `${short} · ${asOf}` : short;
+  const asOf = state.unit.asOfSource === "market" ? UCE.formatAsOf(state.unit.asOf) : "";
+  return asOf ? `${short}\n${chrome.i18n.getMessage("quoteAsOf", asOf)}` : short;
 }
 
 function ensureTooltip() {
@@ -192,6 +192,7 @@ function ensureTooltip() {
   tooltipHost.style.setProperty("pointer-events", "none", "important");
   tooltipHost.style.setProperty("z-index", "2147483646", "important");
   tooltipHost.hidden = true;
+  tooltipHost.style.setProperty("display", "none", "important");
   const shadow = tooltipHost.attachShadow({ mode: "closed" });
   const style = document.createElement("style");
   style.textContent = TOOLTIP_CSS;
@@ -202,10 +203,17 @@ function ensureTooltip() {
   return tooltipEl;
 }
 
+function setTooltipVisible(visible) {
+  if (!tooltipHost) return;
+  tooltipHost.hidden = !visible;
+  // Shadow content does not stop the host matching page rules such as `div:empty { display: none }`.
+  tooltipHost.style.setProperty("display", visible ? "block" : "none", "important");
+}
+
 function showTooltipAtRect(rect, text) {
   const tip = ensureTooltip();
   if (tip.textContent !== text) tip.textContent = text;
-  tooltipHost.hidden = false;
+  setTooltipVisible(true);
   const tipHeight = tooltipHost.offsetHeight || 28;
   const tipWidth = Math.min(tooltipHost.offsetWidth || 160, 280);
   const above = rect.top - tipHeight - 8;
@@ -219,7 +227,7 @@ function showTooltipAtRect(rect, text) {
 function hideTooltip() {
   hoverPayload = null;
   lastHover = null;
-  if (tooltipHost) tooltipHost.hidden = true;
+  setTooltipVisible(false);
 }
 
 function pinTooltip(ms) {
@@ -373,11 +381,45 @@ function elementRoot(root) {
   return root.parentElement || document.body;
 }
 
+function isSplitScanPiece(el) {
+  if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+  const text = UCE.normalizeNbsp(el.textContent || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return (
+    UCE.isCurrencyToken(text) ||
+    UCE.isAmountText(text) ||
+    UCE.isFractionDigits(text) ||
+    UCE.isPriceRangeSeparator(text)
+  );
+}
+
+function hasAdjacentRangeSeparator(el) {
+  return (
+    UCE.isPriceRangeSeparator(skipEmptySiblings(el, "next")?.textContent || "") ||
+    UCE.isPriceRangeSeparator(skipEmptySiblings(el, "prev")?.textContent || "")
+  );
+}
+
 /** Inner Amazon/split mutations should rebind the host, not a child. */
 function expandScanRoot(root) {
   const el = elementRoot(root);
   if (!el || el === document.body || el === document.documentElement) return el;
-  return el.closest?.(".a-price, .uce-price") || el;
+  const host = el.closest?.(".a-price, .uce-price");
+  if (host?.classList.contains("a-price")) return host;
+  if (host?.classList.contains("uce-split")) {
+    const parent = host.parentElement;
+    if (parent && parent !== document.body && parent !== document.documentElement) return parent;
+  }
+  if (host && hasAdjacentRangeSeparator(host)) {
+    const parent = host.parentElement;
+    if (parent && parent !== document.body && parent !== document.documentElement) return parent;
+  }
+  if (host) return host;
+  if (!isSplitScanPiece(el) && !hasAdjacentRangeSeparator(el)) return el;
+  const parent = el.parentElement;
+  if (!parent || parent === document.body || parent === document.documentElement) return el;
+  return parent;
 }
 
 function skipWalkEl(el) {
@@ -517,9 +559,113 @@ function markSplitPiece(textNode, markEl, raw, amount, currency) {
   }
 }
 
+function fractionFromNextSibling(candidate) {
+  const next = skipEmptySiblings(candidate, "next");
+  if (!next) return null;
+  if (next.nodeType === Node.ELEMENT_NODE && (next.closest(".uce-price") || isStruckThrough(next))) return null;
+  if (!UCE.isFractionDigits(next.textContent || "")) return null;
+  if (next.nodeType === Node.TEXT_NODE) {
+    return { raw: next.textContent, textNode: next, markEl: next.parentElement, candidate: next };
+  }
+  const textNode = [...next.childNodes].find(
+    (node) => node.nodeType === Node.TEXT_NODE && UCE.isFractionDigits(node.textContent),
+  );
+  return { raw: next.textContent, textNode: textNode || null, markEl: next, candidate: next };
+}
+
+function parsedAmountCandidate(candidate, currency) {
+  const found = amountFromCandidate(candidate);
+  if (!found || !found.markEl || isStruckThrough(found.markEl)) return null;
+  let amountRaw = found.amount;
+  let fraction = null;
+  if (UCE.isIncompleteWhole(found.amount)) {
+    fraction = fractionFromNextSibling(candidate);
+    if (!fraction) return null;
+    amountRaw = UCE.assembleWholeFraction(found.amount, fraction.raw);
+  }
+  const parsed = UCE.parsePriceString(`${currency} ${amountRaw}`, parseCtx());
+  return parsed ? { found, fraction, parsed } : null;
+}
+
+function markParsedAmount(bound) {
+  markSplitPiece(bound.found.textNode, bound.found.markEl, bound.found.amount, bound.parsed.amount, bound.parsed.currency);
+  if (bound.fraction) {
+    markSplitPiece(
+      bound.fraction.textNode,
+      bound.fraction.markEl,
+      bound.fraction.raw,
+      bound.parsed.amount,
+      bound.parsed.currency,
+    );
+  }
+}
+
+function rangeBoundFromSibling(candidate, direction, currency) {
+  const separator = skipEmptySiblings(candidate, direction);
+  if (!separator || !UCE.isPriceRangeSeparator(separator.textContent || "")) return null;
+  const separatorEl = separator.nodeType === Node.ELEMENT_NODE ? separator : separator.parentElement;
+  if (separatorEl?.closest(".uce-price") || isStruckThrough(separator)) return null;
+
+  const boundCandidate = skipEmptySiblings(separator, direction);
+  if (!boundCandidate) return null;
+  const boundEl = boundCandidate.nodeType === Node.ELEMENT_NODE ? boundCandidate : boundCandidate.parentElement;
+  if (boundEl?.closest(".uce-price") || isStruckThrough(boundCandidate)) return null;
+  return parsedAmountCandidate(boundCandidate, currency);
+}
+
+function adjacentRangeAnchor(node, direction) {
+  let current = node;
+  while (current && current.parentElement && current.parentElement !== document.body) {
+    const sibling = skipEmptySiblings(current, direction);
+    if (sibling) return UCE.isPriceRangeSeparator(sibling.textContent || "") ? current : null;
+    const parent = current.parentElement;
+    if (UCE.normalizeNbsp(parent.textContent).trim() !== UCE.normalizeNbsp(node.textContent).trim()) return null;
+    current = parent;
+  }
+  return null;
+}
+
+function processInlineRangeSiblings(root) {
+  if (!live()) return;
+  const scope = elementRoot(root);
+  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || skipWalkEl(parent) || isStruckThrough(parent) || !/\d/.test(node.textContent || "")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const nodes = [];
+  let current;
+  while ((current = walker.nextNode())) nodes.push(current);
+  for (const node of nodes) {
+    const text = node.textContent || "";
+    for (const hit of UCE.findPrices(text, parseCtx())) {
+      if (!text.slice(hit.end).trim()) {
+        const anchor = adjacentRangeAnchor(node, "next");
+        if (anchor) {
+          const bound = rangeBoundFromSibling(anchor, "next", hit.currency);
+          if (bound) markParsedAmount(bound);
+        }
+      }
+      if (!text.slice(0, hit.start).trim()) {
+        const anchor = adjacentRangeAnchor(node, "prev");
+        if (anchor) {
+          const bound = rangeBoundFromSibling(anchor, "prev", hit.currency);
+          if (bound) markParsedAmount(bound);
+        }
+      }
+    }
+  }
+}
+
 /**
  * Currency-only text next to an amount: element sibling, nested amount, or
- * following text. No site class names. Never marks a common ancestor.
+ * following text. Trailing-decimal wholes (`89.`) join the next 1–2 digit
+ * sibling. A range separator carries the resolved currency to one following
+ * amount. No site class names. Never marks a common ancestor.
  */
 function processSplitSiblings(root) {
   if (!live()) return;
@@ -541,8 +687,12 @@ function processSplitSiblings(root) {
     const currencyEl = node.parentElement;
     if (!currencyEl || currencyEl.closest(".uce-price")) continue;
     if (isStruckThrough(currencyEl)) continue;
+    const parentText = currencyEl.textContent || "";
+    if (!UCE.isCurrencyToken(parentText) && UCE.findPrices(parentText, parseCtx()).length) continue;
 
     const candidates = [
+      skipEmptySiblings(currencyEl, "next"),
+      skipEmptySiblings(currencyEl, "prev"),
       skipEmptySiblings(node, "next"),
       skipEmptySiblings(node, "prev"),
       currencyEl.nextElementSibling,
@@ -556,10 +706,21 @@ function processSplitSiblings(root) {
       const found = amountFromCandidate(candidate);
       if (!found || !found.markEl) continue;
       if (isStruckThrough(found.markEl)) continue;
-      const parsed = UCE.parsePriceString(`${node.textContent} ${found.amount}`, parseCtx());
+      let amountRaw = found.amount;
+      let fraction = null;
+      if (UCE.isIncompleteWhole(found.amount)) {
+        fraction = fractionFromNextSibling(candidate);
+        if (!fraction) continue;
+        amountRaw = UCE.assembleWholeFraction(found.amount, fraction.raw);
+      }
+      const parsed = UCE.parsePriceString(`${node.textContent} ${amountRaw}`, parseCtx());
       if (!parsed) continue;
+      const rangeUpper = rangeBoundFromSibling(fraction?.candidate || candidate, "next", parsed.currency);
+      const rangeLower = rangeBoundFromSibling(candidate, "prev", parsed.currency);
       markSplitPiece(node, currencyEl, node.textContent, parsed.amount, parsed.currency);
-      markSplitPiece(found.textNode, found.markEl, found.amount, parsed.amount, parsed.currency);
+      markParsedAmount({ found, fraction, parsed });
+      if (rangeUpper) markParsedAmount(rangeUpper);
+      if (rangeLower) markParsedAmount(rangeLower);
       break;
     }
   }
@@ -639,6 +800,7 @@ function scan(root) {
   pruneRangesIn(target);
   processAmazon(target);
   processSplitSiblings(target);
+  processInlineRangeSiblings(target);
   walk(target);
   syncHighlight();
   refreshOpenTooltip();
@@ -794,7 +956,7 @@ function onPointerOut(event) {
   if (next) return;
   lastHover = null;
   hoverPayload = null;
-  if (tooltipHost) tooltipHost.hidden = true;
+  setTooltipVisible(false);
 }
 
 function onPointerMove(event) {
@@ -894,9 +1056,56 @@ function selectionRect() {
   return { top: 16, bottom: 44, left: 16, right: 16 };
 }
 
+function runtimeAlive() {
+  try {
+    return Boolean(chrome.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
+function isDisconnectError(err) {
+  const msg = err instanceof Error ? err.message : String(err || "");
+  return /Receiving end does not exist|message channel closed|Extension context invalidated/i.test(msg);
+}
+
+async function requestState() {
+  if (!runtimeAlive()) return null;
+  try {
+    const res = await chrome.runtime.sendMessage({ action: "getState" });
+    if (res?.state) return res;
+  } catch (err) {
+    if (!isDisconnectError(err)) throw err;
+  }
+  try {
+    const stored = await chrome.storage.local.get({
+      unit: null,
+      defaultDollar: UCE.DEFAULT_DOLLAR_CURRENCY,
+      defaultYen: UCE.DEFAULT_YEN_CURRENCY,
+      overrides: {},
+      yenOverrides: {},
+      pausedHosts: [],
+      fx: null,
+    });
+    return {
+      state: {
+        unit: stored.unit ?? null,
+        defaultDollar: stored.defaultDollar || UCE.DEFAULT_DOLLAR_CURRENCY,
+        defaultYen: stored.defaultYen || UCE.DEFAULT_YEN_CURRENCY,
+        overrides: stored.overrides || {},
+        yenOverrides: stored.yenOverrides || {},
+        pausedHosts: stored.pausedHosts || [],
+        fx: stored.fx || null,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function handleConvertSelection(raw) {
   if (!state) {
-    const res = await chrome.runtime.sendMessage({ action: "getState" });
+    const res = await requestState();
     state = res?.state;
   }
   const rect = selectionRect();
@@ -917,7 +1126,7 @@ async function handleConvertSelection(raw) {
 }
 
 async function refreshState() {
-  const res = await chrome.runtime.sendMessage({ action: "getState" });
+  const res = await requestState();
   if (res?.state) state = res.state;
 }
 
@@ -980,17 +1189,35 @@ async function boot() {
   if (tooltipHost) tooltipHost.remove();
   tooltipHost = null;
   tooltipEl = null;
-  const res = await chrome.runtime.sendMessage({ action: "getState" });
-  state = res?.state;
+  try {
+    if (highlightApi()) CSS.highlights.delete(HIGHLIGHT_NAME);
+  } catch {
+    /* previous isolated world may have left a dead highlight */
+  }
+  document.querySelectorAll(MARK_SEL).forEach(unmarkOne);
+  priceRanges = [];
+
+  let res = await requestState();
+  for (let i = 0; !res?.state && i < 4; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    res = await requestState();
+  }
+  if (!res?.state) return;
+  state = res.state;
   applyLiveState();
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
-  handleStorageChange(changes).catch((err) => console.warn("UCE storage", err));
+  if (!runtimeAlive()) return;
+  handleStorageChange(changes).catch((err) => {
+    if (!isDisconnectError(err)) console.warn("UCE storage", err);
+  });
 });
 
 document.addEventListener("visibilitychange", onVisibilityChange);
 
-boot().catch((err) => console.warn("UCE content", err));
+boot().catch((err) => {
+  if (!isDisconnectError(err)) console.warn("UCE content", err);
+});
 })();

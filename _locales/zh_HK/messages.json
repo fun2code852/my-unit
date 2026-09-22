@@ -51,6 +51,15 @@
   "labelPrice": {
     "message": "價錢"
   },
+  "quoteAsOf": {
+    "message": "截至 $DATE$",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "9月22日 下午4:08"
+      }
+    }
+  },
   "placeholderPrice": {
     "message": "50"
   },
@@ -125,22 +134,34 @@
     "message": "不支援此貨幣"
   },
   "errEmptySymbol": {
-    "message": "請輸入代號"
+    "message": "請輸入 Yahoo 代號。"
   },
   "errYahooUnreachable": {
-    "message": "無法連上 Yahoo"
+    "message": "無法連接 Yahoo，請檢查網絡後再試。"
   },
-  "errYahooHttp": {
-    "message": "Yahoo HTTP $STATUS$",
-    "placeholders": {
-      "status": {
-        "content": "$1",
-        "example": "404"
-      }
-    }
+  "errYahooInvalidTicker": {
+    "message": "Yahoo 無法識別此代號，請檢查後再試。"
+  },
+  "errYahooTickerNotFound": {
+    "message": "Yahoo 找不到此代號，請檢查後再試。"
+  },
+  "errYahooAccessDenied": {
+    "message": "Yahoo 拒絕提供報價，請稍後再試。"
+  },
+  "errYahooTimeout": {
+    "message": "Yahoo 回應時間過長，請再試一次。"
+  },
+  "errYahooRateLimited": {
+    "message": "Yahoo 暫時收到太多查詢，請等幾分鐘後再試。"
+  },
+  "errYahooUnavailable": {
+    "message": "Yahoo 暫時無法提供服務，請稍後再試。"
+  },
+  "errYahooRequestFailed": {
+    "message": "Yahoo 無法載入此報價，請稍後再試。"
   },
   "errYahooNoPrice": {
-    "message": "Yahoo 沒有報價"
+    "message": "Yahoo 沒有此代號的價格，請檢查代號或稍後再試。"
   },
   "errNoHostname": {
     "message": "沒有網址"

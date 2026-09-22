@@ -46,6 +46,64 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
   assert(UCE.isAmountText(" 3599 "), "nested 3599 is amount-only");
   const nested = parsePriceString("HK$ 3599", hkCtx);
   assert(nested && nested.amount === 3599 && nested.currency === "HKD", "HK$ + nested 3599");
+  const listed = parsePriceString("HK$ 198,000", hkCtx);
+  assert(listed && listed.amount === 198000 && listed.currency === "HKD", "HK$ 198,000 complete split");
+  const fromPrice = parsePriceString("從 HK$383.00 HKD 起", hkCtx);
+  assert(fromPrice && fromPrice.amount === 383 && fromPrice.currency === "HKD", "Shopify 從 HK$383.00 HKD 起");
+}
+
+{
+  const compact = findPrices("HK$355-388", hkCtx);
+  assertEq(compact.length, 2, "compact price range has two bounds");
+  assertEq(compact[0].amount, 355, "compact price range lower bound");
+  assertEq(compact[1].amount, 388, "compact price range upper bound");
+  assertEq(compact[1].currency, "HKD", "compact price range upper bound inherits currency");
+
+  const spaced = findPrices("HK$ 355 – 388", hkCtx);
+  assertEq(spaced.length, 2, "spaced en-dash price range has two bounds");
+  assertEq(spaced[1].amount, 388, "spaced en-dash price range upper bound");
+
+  const suffix = findPrices("355 至 388 HKD", hkCtx);
+  assertEq(suffix.length, 2, "suffix-currency price range has two bounds");
+  assertEq(suffix[0].amount, 355, "suffix-currency price range lower bound");
+  assertEq(suffix[1].amount, 388, "suffix-currency price range upper bound");
+  assert(UCE.isPriceRangeSeparator(" - "), "hyphen is a range separator");
+  assert(UCE.isPriceRangeSeparator("to"), "to is a range separator");
+  assert(UCE.isPriceRangeSeparator("～"), "fullwidth tilde is a range separator");
+  assert(!UCE.isPriceRangeSeparator("/"), "slash is not a price range separator");
+
+  for (const [raw, currency] of [
+    ["US$355-388", "USD"],
+    ["€355–388", "EUR"],
+    ["¥355～388", "JPY"],
+    ["355 至 388 USD", "USD"],
+  ]) {
+    const hits = findPrices(raw, { hostname: "example.com", defaultYen: "JPY" });
+    assertEq(hits.length, 2, `${raw} has two bounds`);
+    assertEq(hits[0].currency, currency, `${raw} lower currency`);
+    assertEq(hits[1].currency, currency, `${raw} upper currency`);
+  }
+  assertEq(findPrices("355-388", hkCtx).length, 0, "bare numeric range is ignored");
+}
+
+{
+  assert(UCE.isIncompleteWhole("89."), "89. is an incomplete whole");
+  assert(UCE.isIncompleteWhole(" 89, "), "89, is an incomplete whole");
+  assert(!UCE.isIncompleteWhole("89.00"), "89.00 is complete");
+  assert(!UCE.isIncompleteWhole("4,480"), "4,480 is complete");
+  assert(!UCE.isIncompleteWhole("198,000"), "198,000 is complete");
+  assert(UCE.isFractionDigits("00"), "00 is fraction digits");
+  assert(UCE.isFractionDigits("9"), "9 is fraction digits");
+  assert(!UCE.isFractionDigits("000"), "000 is not a 1–2 digit fraction");
+  assert(!UCE.isFractionDigits("00a"), "00a is not fraction digits");
+  assertEq(UCE.assembleWholeFraction("89.", "00"), "89.00", "assemble 89. + 00");
+  assertEq(UCE.assembleWholeFraction("89,", "00"), "89,00", "assemble 89, + 00");
+  const yen = parsePriceString("¥ " + UCE.assembleWholeFraction("89.", "00"), {
+    hostname: "www.amazon.co.jp",
+  });
+  assert(yen && yen.amount === 89 && yen.currency === "JPY", "¥ 89.00 from trailing-decimal pieces");
+  const euro = parsePriceString("€ " + UCE.assembleWholeFraction("89,", "00"), hkCtx);
+  assert(euro && Math.abs(euro.amount - 89) < 1e-9 && euro.currency === "EUR", "€ 89,00 from trailing-decimal pieces");
 }
 
 {
@@ -100,6 +158,23 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
   assert(yenOverride && yenOverride.currency === "CNY", "per-domain ¥ override");
   assertEq(parsePriceString("CN¥88", { hostname: "www.example.com" }).currency, "CNY", "CN¥ is always CNY");
   assertEq(parsePriceString("円1200", { hostname: "www.example.com", defaultYen: "CNY" }).currency, "JPY", "円 is always JPY");
+  assert(UCE.isCurrencyToken("￥"), "fullwidth ￥ is a yen token");
+  assertEq(
+    parsePriceString("￥89.00", { hostname: "item.jd.com", defaultYen: "CNY" }).amount,
+    89,
+    "JD ￥89.00 amount",
+  );
+  assertEq(
+    parsePriceString("￥89.00", { hostname: "item.jd.com", defaultYen: "CNY" }).currency,
+    "CNY",
+    "JD ￥ follows yen default",
+  );
+  assertEq(
+    parsePriceString("￥ " + UCE.assembleWholeFraction("89.", "00"), { hostname: "item.jd.com", defaultYen: "CNY" })
+      .amount,
+    89,
+    "JD ￥ + 89. + 00 assembles",
+  );
 }
 
 {
@@ -227,6 +302,15 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
   assertEq(formatCount(0.0012), "0.0012", "small count keeps digits");
   assertEq(formatCount(0.00024), "0.00024", "BTC-scale count");
   assertEq(formatCount(0.01), "0.01", "format 0.01");
+  assertEq(formatCount(999), "999", "no comma under 1000");
+  assertEq(formatCount(1000), "1,000", "format 1000");
+  assertEq(formatCount(1199), "1,199", "format 1199");
+  assertEq(formatCount(1000.4), "1,000.4", "format 1000.4");
+  assertEq(formatCount(2555123.4), "2,555,123.4", "format millions");
+  assertEq(UCE.formatQuote(332.41, 2), "332.41", "quote under 1000");
+  assertEq(UCE.formatQuote(1234.5, 2), "1,234.50", "quote groups thousands");
+  assertEq(UCE.groupThousands(50), "50", "group small custom price");
+  assertEq(UCE.groupThousands(1199), "1,199", "group custom price");
 }
 
 console.log("ok", parseNumber("1,199.00"));

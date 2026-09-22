@@ -98,6 +98,17 @@ async function refreshFx() {
   return fx;
 }
 
+function yahooHttpError(status) {
+  let key = "errYahooRequestFailed";
+  if (status === 400) key = "errYahooInvalidTicker";
+  else if (status === 404) key = "errYahooTickerNotFound";
+  else if (status === 401 || status === 403) key = "errYahooAccessDenied";
+  else if (status === 408 || status === 504) key = "errYahooTimeout";
+  else if (status === 429) key = "errYahooRateLimited";
+  else if (status >= 500 && status < 600) key = "errYahooUnavailable";
+  return chrome.i18n.getMessage(key);
+}
+
 async function fetchYahoo(symbol) {
   const encoded = encodeURIComponent(String(symbol || "").trim());
   if (!encoded) throw new Error(chrome.i18n.getMessage("errEmptySymbol"));
@@ -110,13 +121,15 @@ async function fetchYahoo(symbol) {
         referrerPolicy: "no-referrer",
       });
       if (!res.ok) {
-        lastError = chrome.i18n.getMessage("errYahooHttp", [String(res.status)]);
+        lastError = yahooHttpError(res.status);
         continue;
       }
       const data = await res.json();
       const meta = data?.chart?.result?.[0]?.meta;
       const price = meta?.regularMarketPrice;
       const currency = meta?.currency;
+      const marketTime = Number(meta?.regularMarketTime);
+      const asOf = Number.isFinite(marketTime) && marketTime > 0 ? marketTime * 1000 : null;
       if (!Number.isFinite(price) || price <= 0 || !currency) {
         lastError = chrome.i18n.getMessage("errYahooNoPrice");
         continue;
@@ -129,7 +142,8 @@ async function fetchYahoo(symbol) {
         price,
         currency: String(currency).toUpperCase(),
         priceHint: meta.priceHint,
-        asOf: meta.regularMarketTime ? meta.regularMarketTime * 1000 : Date.now(),
+        asOf,
+        asOfSource: asOf ? "market" : null,
       };
     } catch {
       lastError = chrome.i18n.getMessage("errYahooUnreachable");
@@ -179,9 +193,9 @@ async function hasPageAccess() {
 async function registered() {
   try {
     const scripts = await chrome.scripting.getRegisteredContentScripts({ ids: [SCRIPT_ID] });
-    return scripts.some((script) => script.id === SCRIPT_ID);
+    return scripts.find((script) => script.id === SCRIPT_ID) || null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -201,8 +215,8 @@ async function injectTab(tabId) {
   if (existing) return existing;
   const job = (async () => {
     if (await tabHasScript(tabId)) return;
-    await chrome.scripting.insertCSS({ target: { tabId }, files: CONTENT_CSS });
-    await chrome.scripting.executeScript({ target: { tabId }, files: CONTENT_JS });
+    await chrome.scripting.insertCSS({ target: { tabId, allFrames: true }, files: CONTENT_CSS });
+    await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: CONTENT_JS });
   })().finally(() => {
     if (injectLocks.get(tabId) === job) injectLocks.delete(tabId);
   });
@@ -250,10 +264,14 @@ async function syncContentScripts() {
   const state = await getState();
   const granted = await hasPageAccess();
   const want = unitReady(state.unit) && granted;
-  const isRegistered = await registered();
+  const current = await registered();
+  const isRegistered = Boolean(current);
 
-  if (want && !isRegistered) {
+  if (want && (!isRegistered || current.allFrames !== true)) {
     try {
+      if (isRegistered) {
+        await chrome.scripting.unregisterContentScripts({ ids: [SCRIPT_ID] });
+      }
       await chrome.scripting.registerContentScripts([
         {
           id: SCRIPT_ID,
@@ -262,6 +280,7 @@ async function syncContentScripts() {
           css: CONTENT_CSS,
           runAt: "document_idle",
           persistAcrossSessions: true,
+          allFrames: true,
         },
       ]);
     } catch (err) {

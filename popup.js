@@ -136,13 +136,13 @@ function describeUnit(unit) {
   }
   if (unit.type === "yahoo") {
     const hint = UCE.formatQuote(unit.price, unit.priceHint);
-    const asOf = UCE.formatAsOf(unit.asOf);
-    return `${unit.symbol} · ${unit.shortName || ""} · ${unit.currency} ${hint}${asOf ? ` · ${asOf}` : ""}`.replace(
+    const asOf = unit.asOfSource === "market" ? UCE.formatAsOf(unit.asOf) : "";
+    return `${unit.symbol} · ${unit.shortName || ""} · ${unit.currency} ${hint}${asOf ? ` · ${chrome.i18n.getMessage("quoteAsOf", asOf)}` : ""}`.replace(
       / ·  · /g,
       " · ",
     );
   }
-  return `${unit.name} · ${unit.currency} ${unit.price}`;
+  return `${unit.name} · ${unit.currency} ${UCE.groupThousands(unit.price)}`;
 }
 
 function paintStatus(unit, error) {
