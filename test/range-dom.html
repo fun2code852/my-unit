@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+  <body>
+    <div id="split"><span>HK$</span><span>355</span><span>-</span><span>388</span></div>
+    <div id="inline"><span>US$355</span><span>–</span><span>388</span></div>
+    <div id="suffix-inline"><span>355</span><span>至</span><span>388 EUR</span></div>
+    <div id="suffix-split"><span>355</span><span>to</span><span>388</span><span>USD</span></div>
+    <div id="bare"><span>355</span><span>-</span><span>388</span></div>
+    <script>
+      const state = {
+        unit: { type: "currency", currency: "JPY" },
+        defaultDollar: "HKD",
+        defaultYen: "JPY",
+        overrides: {},
+        yenOverrides: {},
+        pausedHosts: [],
+        fx: { base: "USD", rates: { HKD: 7.8, JPY: 150, EUR: 0.9 } },
+      };
+      globalThis.chrome = {
+        i18n: { getMessage: (key) => key },
+        runtime: {
+          id: "range-test",
+          sendMessage: async () => ({ state }),
+          onMessage: { addListener() {} },
+        },
+        storage: {
+          local: { get: async () => state },
+          onChanged: { addListener() {} },
+        },
+      };
+    </script>
+    <script src="../lib/currencies.js"></script>
+    <script src="../lib/parse.js"></script>
+    <script src="../lib/convert.js"></script>
+    <script src="../content.js"></script>
+    <script>
+      function isBound(span, amount, currency) {
+        if (span.dataset.uceAmount === amount && span.dataset.uceCurrency === currency) return true;
+        const highlight = CSS.highlights?.get("uce-price");
+        if (!highlight) return false;
+        return [...highlight].some((range) =>
+          span.contains(range.startContainer) &&
+          UCE.findPrices(range.toString(), { hostname: location.hostname, defaultDollar: "HKD" })
+            .some((hit) => hit.amount === Number(amount) && hit.currency === currency),
+        );
+      }
+
+      setTimeout(() => {
+        const cases = [
+          ["split", 1, "HKD", 3, "HKD"],
+          ["inline", 0, "USD", 2, "USD"],
+          ["suffix-inline", 0, "EUR", 2, "EUR"],
+          ["suffix-split", 0, "USD", 2, "USD"],
+        ];
+        const failures = [];
+        for (const [id, lowerIndex, lowerCurrency, upperIndex, upperCurrency] of cases) {
+          const pieces = document.getElementById(id).children;
+          const lower = pieces[lowerIndex];
+          const upper = pieces[upperIndex];
+          if (!isBound(lower, "355", lowerCurrency)) {
+            failures.push(`${id} lower`);
+          }
+          if (!isBound(upper, "388", upperCurrency)) {
+            failures.push(`${id} upper`);
+          }
+        }
+        if (document.querySelector("#bare .uce-price")) failures.push("bare range");
+        document.body.dataset.testResult = failures.length ? `FAIL: ${failures.join(", ")}` : "PASS";
+      }, 100);
+    </script>
+  </body>
+</html>

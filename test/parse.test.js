@@ -53,6 +53,40 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
 }
 
 {
+  const compact = findPrices("HK$355-388", hkCtx);
+  assertEq(compact.length, 2, "compact price range has two bounds");
+  assertEq(compact[0].amount, 355, "compact price range lower bound");
+  assertEq(compact[1].amount, 388, "compact price range upper bound");
+  assertEq(compact[1].currency, "HKD", "compact price range upper bound inherits currency");
+
+  const spaced = findPrices("HK$ 355 – 388", hkCtx);
+  assertEq(spaced.length, 2, "spaced en-dash price range has two bounds");
+  assertEq(spaced[1].amount, 388, "spaced en-dash price range upper bound");
+
+  const suffix = findPrices("355 至 388 HKD", hkCtx);
+  assertEq(suffix.length, 2, "suffix-currency price range has two bounds");
+  assertEq(suffix[0].amount, 355, "suffix-currency price range lower bound");
+  assertEq(suffix[1].amount, 388, "suffix-currency price range upper bound");
+  assert(UCE.isPriceRangeSeparator(" - "), "hyphen is a range separator");
+  assert(UCE.isPriceRangeSeparator("to"), "to is a range separator");
+  assert(UCE.isPriceRangeSeparator("～"), "fullwidth tilde is a range separator");
+  assert(!UCE.isPriceRangeSeparator("/"), "slash is not a price range separator");
+
+  for (const [raw, currency] of [
+    ["US$355-388", "USD"],
+    ["€355–388", "EUR"],
+    ["¥355～388", "JPY"],
+    ["355 至 388 USD", "USD"],
+  ]) {
+    const hits = findPrices(raw, { hostname: "example.com", defaultYen: "JPY" });
+    assertEq(hits.length, 2, `${raw} has two bounds`);
+    assertEq(hits[0].currency, currency, `${raw} lower currency`);
+    assertEq(hits[1].currency, currency, `${raw} upper currency`);
+  }
+  assertEq(findPrices("355-388", hkCtx).length, 0, "bare numeric range is ignored");
+}
+
+{
   assert(UCE.isIncompleteWhole("89."), "89. is an incomplete whole");
   assert(UCE.isIncompleteWhole(" 89, "), "89, is an incomplete whole");
   assert(!UCE.isIncompleteWhole("89.00"), "89.00 is complete");

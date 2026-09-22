@@ -386,7 +386,19 @@ function isSplitScanPiece(el) {
   const text = UCE.normalizeNbsp(el.textContent || "")
     .replace(/\s+/g, " ")
     .trim();
-  return UCE.isCurrencyToken(text) || UCE.isAmountText(text) || UCE.isFractionDigits(text);
+  return (
+    UCE.isCurrencyToken(text) ||
+    UCE.isAmountText(text) ||
+    UCE.isFractionDigits(text) ||
+    UCE.isPriceRangeSeparator(text)
+  );
+}
+
+function hasAdjacentRangeSeparator(el) {
+  return (
+    UCE.isPriceRangeSeparator(skipEmptySiblings(el, "next")?.textContent || "") ||
+    UCE.isPriceRangeSeparator(skipEmptySiblings(el, "prev")?.textContent || "")
+  );
 }
 
 /** Inner Amazon/split mutations should rebind the host, not a child. */
@@ -394,8 +406,17 @@ function expandScanRoot(root) {
   const el = elementRoot(root);
   if (!el || el === document.body || el === document.documentElement) return el;
   const host = el.closest?.(".a-price, .uce-price");
+  if (host?.classList.contains("a-price")) return host;
+  if (host?.classList.contains("uce-split")) {
+    const parent = host.parentElement;
+    if (parent && parent !== document.body && parent !== document.documentElement) return parent;
+  }
+  if (host && hasAdjacentRangeSeparator(host)) {
+    const parent = host.parentElement;
+    if (parent && parent !== document.body && parent !== document.documentElement) return parent;
+  }
   if (host) return host;
-  if (!isSplitScanPiece(el)) return el;
+  if (!isSplitScanPiece(el) && !hasAdjacentRangeSeparator(el)) return el;
   const parent = el.parentElement;
   if (!parent || parent === document.body || parent === document.documentElement) return el;
   return parent;
@@ -544,18 +565,107 @@ function fractionFromNextSibling(candidate) {
   if (next.nodeType === Node.ELEMENT_NODE && (next.closest(".uce-price") || isStruckThrough(next))) return null;
   if (!UCE.isFractionDigits(next.textContent || "")) return null;
   if (next.nodeType === Node.TEXT_NODE) {
-    return { raw: next.textContent, textNode: next, markEl: next.parentElement };
+    return { raw: next.textContent, textNode: next, markEl: next.parentElement, candidate: next };
   }
   const textNode = [...next.childNodes].find(
     (node) => node.nodeType === Node.TEXT_NODE && UCE.isFractionDigits(node.textContent),
   );
-  return { raw: next.textContent, textNode: textNode || null, markEl: next };
+  return { raw: next.textContent, textNode: textNode || null, markEl: next, candidate: next };
+}
+
+function parsedAmountCandidate(candidate, currency) {
+  const found = amountFromCandidate(candidate);
+  if (!found || !found.markEl || isStruckThrough(found.markEl)) return null;
+  let amountRaw = found.amount;
+  let fraction = null;
+  if (UCE.isIncompleteWhole(found.amount)) {
+    fraction = fractionFromNextSibling(candidate);
+    if (!fraction) return null;
+    amountRaw = UCE.assembleWholeFraction(found.amount, fraction.raw);
+  }
+  const parsed = UCE.parsePriceString(`${currency} ${amountRaw}`, parseCtx());
+  return parsed ? { found, fraction, parsed } : null;
+}
+
+function markParsedAmount(bound) {
+  markSplitPiece(bound.found.textNode, bound.found.markEl, bound.found.amount, bound.parsed.amount, bound.parsed.currency);
+  if (bound.fraction) {
+    markSplitPiece(
+      bound.fraction.textNode,
+      bound.fraction.markEl,
+      bound.fraction.raw,
+      bound.parsed.amount,
+      bound.parsed.currency,
+    );
+  }
+}
+
+function rangeBoundFromSibling(candidate, direction, currency) {
+  const separator = skipEmptySiblings(candidate, direction);
+  if (!separator || !UCE.isPriceRangeSeparator(separator.textContent || "")) return null;
+  const separatorEl = separator.nodeType === Node.ELEMENT_NODE ? separator : separator.parentElement;
+  if (separatorEl?.closest(".uce-price") || isStruckThrough(separator)) return null;
+
+  const boundCandidate = skipEmptySiblings(separator, direction);
+  if (!boundCandidate) return null;
+  const boundEl = boundCandidate.nodeType === Node.ELEMENT_NODE ? boundCandidate : boundCandidate.parentElement;
+  if (boundEl?.closest(".uce-price") || isStruckThrough(boundCandidate)) return null;
+  return parsedAmountCandidate(boundCandidate, currency);
+}
+
+function adjacentRangeAnchor(node, direction) {
+  let current = node;
+  while (current && current.parentElement && current.parentElement !== document.body) {
+    const sibling = skipEmptySiblings(current, direction);
+    if (sibling) return UCE.isPriceRangeSeparator(sibling.textContent || "") ? current : null;
+    const parent = current.parentElement;
+    if (UCE.normalizeNbsp(parent.textContent).trim() !== UCE.normalizeNbsp(node.textContent).trim()) return null;
+    current = parent;
+  }
+  return null;
+}
+
+function processInlineRangeSiblings(root) {
+  if (!live()) return;
+  const scope = elementRoot(root);
+  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || skipWalkEl(parent) || isStruckThrough(parent) || !/\d/.test(node.textContent || "")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const nodes = [];
+  let current;
+  while ((current = walker.nextNode())) nodes.push(current);
+  for (const node of nodes) {
+    const text = node.textContent || "";
+    for (const hit of UCE.findPrices(text, parseCtx())) {
+      if (!text.slice(hit.end).trim()) {
+        const anchor = adjacentRangeAnchor(node, "next");
+        if (anchor) {
+          const bound = rangeBoundFromSibling(anchor, "next", hit.currency);
+          if (bound) markParsedAmount(bound);
+        }
+      }
+      if (!text.slice(0, hit.start).trim()) {
+        const anchor = adjacentRangeAnchor(node, "prev");
+        if (anchor) {
+          const bound = rangeBoundFromSibling(anchor, "prev", hit.currency);
+          if (bound) markParsedAmount(bound);
+        }
+      }
+    }
+  }
 }
 
 /**
  * Currency-only text next to an amount: element sibling, nested amount, or
  * following text. Trailing-decimal wholes (`89.`) join the next 1–2 digit
- * sibling. No site class names. Never marks a common ancestor.
+ * sibling. A range separator carries the resolved currency to one following
+ * amount. No site class names. Never marks a common ancestor.
  */
 function processSplitSiblings(root) {
   if (!live()) return;
@@ -605,11 +715,12 @@ function processSplitSiblings(root) {
       }
       const parsed = UCE.parsePriceString(`${node.textContent} ${amountRaw}`, parseCtx());
       if (!parsed) continue;
+      const rangeUpper = rangeBoundFromSibling(fraction?.candidate || candidate, "next", parsed.currency);
+      const rangeLower = rangeBoundFromSibling(candidate, "prev", parsed.currency);
       markSplitPiece(node, currencyEl, node.textContent, parsed.amount, parsed.currency);
-      markSplitPiece(found.textNode, found.markEl, found.amount, parsed.amount, parsed.currency);
-      if (fraction) {
-        markSplitPiece(fraction.textNode, fraction.markEl, fraction.raw, parsed.amount, parsed.currency);
-      }
+      markParsedAmount({ found, fraction, parsed });
+      if (rangeUpper) markParsedAmount(rangeUpper);
+      if (rangeLower) markParsedAmount(rangeLower);
       break;
     }
   }
@@ -689,6 +800,7 @@ function scan(root) {
   pruneRangesIn(target);
   processAmazon(target);
   processSplitSiblings(target);
+  processInlineRangeSiblings(target);
   walk(target);
   syncHighlight();
   refreshOpenTooltip();
