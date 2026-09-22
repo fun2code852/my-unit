@@ -142,7 +142,7 @@ function describeUnit(unit) {
       " · ",
     );
   }
-  return `${unit.name} · ${unit.currency} ${unit.price}`;
+  return `${unit.name} · ${unit.currency} ${UCE.groupThousands(unit.price)}`;
 }
 
 function paintStatus(unit, error) {
