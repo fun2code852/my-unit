@@ -55,8 +55,6 @@ Vanilla Manifest V3. No bundler.
 node test/parse.test.js
 ```
 
-For DOM range checks, open `test/range-dom.html` in Chrome and inspect the body's `data-test-result` attribute (`PASS` means every case bound correctly).
-
 Store listing copy and the promo tile live in [`store/LISTING.md`](store/LISTING.md). Apple / Tabelog / 28Hse screenshots are local dashboard assets and are gitignored.
 
 ### Manual checks
