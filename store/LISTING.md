@@ -44,7 +44,7 @@ Save a unit to start. Chrome then asks for website access so prices can be under
 
 Live tickers poll Yahoo Finance about every 15 minutes (quotes are unofficial and often delayed). FX uses Frankfurter (ECB daily rates); currencies the ECB omits, such as TWD, fall back to Yahoo. Nothing from the page is uploaded.
 
-Unmarked $ and ¥ follow marked prices on the page when those marks agree; otherwise $ is HKD. A per-site $ or ¥ in the popup wins over that guess.
+Unmarked $ and ¥ follow marked prices on the page when those marks agree. Otherwise My Unit checks a remotely maintained list of site currency hints, then the country domain for ¥, then your default currency. A per-site $ or ¥ choice in the popup wins over automatic hints. If only a country-domain hint or default is available, the tooltip shows the currency used for conversion.
 
 ### Single purpose
 
@@ -68,7 +68,7 @@ My Unit 把網頁上的價錢，換成你選定的一個單位：自訂物品（
 
 即時代碼約每 15 分鐘向 Yahoo Finance 查價（非官方報價，常有延遲）。匯率使用 Frankfurter（歐洲央行每日匯率）；ECB 沒有的貨幣（例如 TWD）會改用 Yahoo。頁面內容不會上傳。
 
-沒有標記的 $ 與 ¥ 會跟頁面上已標明的價錢走；否則 $ 為港元。可在彈出視窗為個別網站覆寫 $ 與 ¥。
+沒有標記的 $ 與 ¥ 會參考頁面上已標明的價錢；否則會依序參考遠端網站貨幣提示、¥ 的國家網域，以及預設貨幣。可在彈出視窗為個別網站覆寫 $ 與 ¥。如果只能根據國家網域或預設貨幣判斷，提示會顯示換算時採用的貨幣。
 
 ### Single purpose
 
@@ -84,19 +84,20 @@ Answer the dashboard from [PRIVACY.md](../PRIVACY.md):
 - Location, webcams, etc.: no
 - Remote code: no
 - Data sold or used for advertising / creditworthiness: no
-- Transfer to third parties: FX requests go to Frankfurter; live units and some FX gaps go to Yahoo Finance chart quotes. No browsing history is included.
+- Transfer to third parties: FX requests go to Frankfurter; live units and some FX gaps go to Yahoo Finance chart quotes. The extension also fetches a public site-currency JSON file from GitHub Pages. These requests do not include the page being viewed or browsing history.
 
 ## Permission justifications
 
 Use these in the permissions questionnaire and, if asked, the listing.
 
-- **storage** — Save the unit, FX cache, `$`/`¥` defaults and per-site overrides, and paused hostnames on the device.
-- **alarms** — Refresh ECB FX about daily, and Yahoo quotes about every 15 minutes only while a live ticker is saved.
+- **storage** — Save the unit, FX cache, cached site-currency hints, `$`/`¥` defaults and per-site overrides, and paused hostnames on the device.
+- **alarms** — Refresh ECB FX, site-currency hints about hourly, and Yahoo quotes about every 15 minutes only while a live ticker is saved.
 - **activeTab** — Pause or override `$`/`¥` on the open tab, and inject so right-click Convert can run after a user gesture.
 - **contextMenus** — Convert selected text from the right-click menu. Parsing is local.
 - **scripting** — Inject the content script on sites the user has allowed, or on the current tab after a gesture.
 - **Host: query1/query2.finance.yahoo.com** — Unofficial chart quotes for a saved ticker and for FX pairs ECB does not publish.
 - **Host: api.frankfurter.dev** — ECB daily FX rates.
+- **Host: fun2code852.github.io** — Download a public JSON map of site currency hints for ambiguous `$` and `¥`; no visited page URL is sent.
 - **Optional host: http(s)://\*/\*** — Underline prices on pages the user grants after saving a unit. Not required at install. Per-site pause is in the popup.
 
 ## Zip for upload
