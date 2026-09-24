@@ -172,6 +172,10 @@
   "tipFxNeeded": {
     "message": "Need FX rates for this conversion"
   },
+  "tipAssumedCurrency": {
+    "message": "Converted as $CURRENCY$",
+    "placeholders": { "currency": { "content": "$1" } }
+  },
   "tipSaveUnitFirst": {
     "message": "Save a unit in My Unit first"
   },

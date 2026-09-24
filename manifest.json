@@ -24,7 +24,8 @@
   "host_permissions": [
     "https://query1.finance.yahoo.com/*",
     "https://query2.finance.yahoo.com/*",
-    "https://api.frankfurter.dev/*"
+    "https://api.frankfurter.dev/*",
+    "https://fun2code852.github.io/*"
   ],
   "optional_host_permissions": ["http://*/*", "https://*/*"]
 }

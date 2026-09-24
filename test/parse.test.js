@@ -192,6 +192,89 @@ const amazonCtx = { hostname: "www.amazon.com", defaultDollar: "HKD", overrides:
 }
 
 {
+  const config = UCE.normalizeSiteConfig(
+    {
+      schemaVersion: 1,
+      revision: "test.1",
+      sites: {
+        "amazon.com": { dollar: "USD" },
+        "jp.mercari.com": { yen: "JPY" },
+        "mercari.com": { dollar: "USD" },
+        "taobao.com": { yen: "CNY" },
+        "WWW.28HSE.COM": { dollar: "HKD" },
+        "https://invalid.example": { dollar: "CAD" },
+        "invalid.example": { dollar: "EUR", yen: "USD" },
+      },
+    },
+    123,
+  );
+  assertEq(config.fetchedAt, 123, "site config records fetch time");
+  assertEq(config.sites["28hse.com"].dollar, "HKD", "site config canonicalizes www host");
+  assertEq(config.sites["invalid.example"], undefined, "site config drops unsupported family currencies");
+  assertEq(UCE.siteConfigCurrency("www.amazon.com", config.sites, "dollar"), "USD", "remote rule matches www");
+  assertEq(UCE.siteConfigCurrency("smile.amazon.com", config.sites, "dollar"), "USD", "remote rule matches subdomain");
+  assertEq(UCE.siteConfigCurrency("fake-amazon.com", config.sites, "dollar"), null, "remote rule needs hostname boundary");
+  assertEq(UCE.siteConfigCurrency("mdepa.jp.mercari.com", config.sites, "yen"), "JPY", "longest host rule matches");
+  assertEq(
+    UCE.resolveDollar("www.amazon.com", "HKD", {}, null, config.sites),
+    "USD",
+    "remote dollar rule beats global default",
+  );
+  assertEq(
+    UCE.resolveDollar("www.amazon.com", "HKD", {}, "CAD", config.sites),
+    "CAD",
+    "page dollar hint beats remote rule",
+  );
+  assertEq(
+    UCE.resolveDollar("www.amazon.com", "HKD", { "amazon.com": "AUD" }, "CAD", config.sites),
+    "AUD",
+    "user dollar override beats page and remote rules",
+  );
+  assertEq(
+    UCE.resolveYen("detail.taobao.com", "JPY", {}, null, config.sites),
+    "CNY",
+    "remote yen rule matches subdomain and beats global default",
+  );
+  const remoteDollar = parsePriceString("$20", {
+    hostname: "smile.amazon.com",
+    defaultDollar: "HKD",
+    configSites: config.sites,
+  });
+  assert(remoteDollar && remoteDollar.currency === "USD", "bare dollar uses remote site config");
+  const explicitDollar = parsePriceString("C$20", {
+    hostname: "smile.amazon.com",
+    defaultDollar: "HKD",
+    configSites: config.sites,
+  });
+  assert(explicitDollar && explicitDollar.currency === "CAD", "explicit currency beats remote site config");
+  assertEq(remoteDollar.assumed, false, "remote site rule needs no extra tooltip line");
+  assertEq(explicitDollar.assumed, false, "explicit currency is not marked as assumed");
+  assertEq(
+    parsePriceString("¥20", { hostname: "detail.taobao.com", defaultYen: "JPY", configSites: config.sites }).assumed,
+    false,
+    "remote yen rule needs no extra tooltip line",
+  );
+}
+
+{
+  const ctx = { hostname: "shop.example.com", defaultDollar: "HKD", defaultYen: "JPY" };
+  assertEq(parsePriceString("$20", ctx).assumed, true, "bare dollar with only global default is assumed");
+  assertEq(parsePriceString("¥20", ctx).assumed, true, "bare yen with only global default is assumed");
+  assertEq(parsePriceString("￥20", ctx).assumed, true, "full-width yen with only global default is assumed");
+  assertEq(parsePriceString("USD 20", ctx).assumed, false, "explicit ISO is not assumed");
+  assertEq(parsePriceString("US$20", ctx).assumed, false, "explicit symbol is not assumed");
+  assertEq(parsePriceString("$20", { ...ctx, pageDollar: "USD" }).assumed, false, "page-wide dollar hint needs no extra tooltip line");
+  assertEq(parsePriceString("$20", { ...ctx, overrides: { "shop.example.com": "CAD" } }).assumed, false, "user site override is not assumed");
+  assertEq(parsePriceString("¥20", { ...ctx, pageYen: "CNY" }).assumed, false, "page-wide yen hint needs no extra tooltip line");
+  assertEq(parsePriceString("¥20", { ...ctx, yenOverrides: { "shop.example.com": "CNY" } }).assumed, false, "user yen override is not assumed");
+  assertEq(parsePriceString("¥20", { ...ctx, hostname: "shop.example.jp" }).assumed, true, "yen TLD hint gets the extra tooltip line");
+  assertEq(parsePriceString("¥20", { ...ctx, hostname: "shop.example.cn" }).assumed, true, "yuan TLD hint gets the extra tooltip line");
+  assertEq(parsePriceString("$20", { ...ctx, pageDollar: "USD", overrides: { "shop.example.com": "CAD" } }).assumed, false, "user override remains reliable over page hint");
+  assertEq(findPrices("$20–30", ctx)[1].assumed, true, "bare-dollar range inherits assumption");
+  assertEq(findPrices("USD 20–30", ctx)[1].assumed, false, "explicit range is not assumed");
+}
+
+{
   const artsy = "US$12,000";
   assertEq(UCE.pageCurrencyHints(artsy).dollar, "USD", "US$12,000 hints USD");
   assertEq(UCE.pageCurrencyHints("$12,000", { defaultDollar: "HKD" }).dollar, null, "bare $ is not a page hint");

@@ -61,6 +61,7 @@ function parseCtx() {
     yenOverrides: state?.yenOverrides || {},
     pageDollar: pageHints.dollar,
     pageYen: pageHints.yen,
+    configSites: state?.siteConfig?.sites || {},
   };
 }
 
@@ -173,13 +174,15 @@ function conversionShort(amount, currency) {
   return `${formatted} ${label}`;
 }
 
-function conversionText(amount, currency) {
+function conversionText(amount, currency, assumed = false) {
   if (!state?.unit) return null;
   const short = conversionShort(amount, currency);
-  if (!short) return chrome.i18n.getMessage("tipFxNeeded");
-  if (state.unit.type !== "yahoo") return short;
+  const lines = [short || chrome.i18n.getMessage("tipFxNeeded")];
+  if (assumed) lines.push(chrome.i18n.getMessage("tipAssumedCurrency", currency));
+  if (state.unit.type !== "yahoo") return lines.join("\n");
   const asOf = state.unit.asOfSource === "market" ? UCE.formatAsOf(state.unit.asOf) : "";
-  return asOf ? `${short}\n${chrome.i18n.getMessage("quoteAsOf", asOf)}` : short;
+  if (short && asOf) lines.push(chrome.i18n.getMessage("quoteAsOf", asOf));
+  return lines.join("\n");
 }
 
 function ensureTooltip() {
@@ -237,10 +240,10 @@ function pinTooltip(ms) {
   }, ms + 50);
 }
 
-function showPriceTooltip(amount, currency, getRect, key) {
+function showPriceTooltip(amount, currency, assumed, getRect, key) {
   lastHover = key;
-  hoverPayload = { amount, currency, getRect };
-  showTooltipAtRect(getRect(), conversionText(amount, currency));
+  hoverPayload = { amount, currency, assumed, getRect };
+  showTooltipAtRect(getRect(), conversionText(amount, currency, assumed));
 }
 
 function refreshOpenTooltip() {
@@ -251,7 +254,7 @@ function refreshOpenTooltip() {
       hideTooltip();
       return;
     }
-    showPriceTooltip(Number(key.dataset.uceAmount), key.dataset.uceCurrency, () => key.getBoundingClientRect(), key);
+    showPriceTooltip(Number(key.dataset.uceAmount), key.dataset.uceCurrency, key.dataset.uceAssumed === "1", () => key.getBoundingClientRect(), key);
     return;
   }
   if (key && key.startContainer) {
@@ -266,19 +269,21 @@ function refreshOpenTooltip() {
       hideTooltip();
       return;
     }
-    showPriceTooltip(item.amount, item.currency, () => item.range.getBoundingClientRect(), item.range);
+    showPriceTooltip(item.amount, item.currency, item.assumed, () => item.range.getBoundingClientRect(), item.range);
     return;
   }
-  showTooltipAtRect(hoverPayload.getRect(), conversionText(hoverPayload.amount, hoverPayload.currency));
+  showTooltipAtRect(hoverPayload.getRect(), conversionText(hoverPayload.amount, hoverPayload.currency, hoverPayload.assumed));
 }
 
 const MARK_SEL = ".uce-price, .uce-amazon-mark, .uce-split";
 
-function markPrice(el, amount, currency) {
+function markPrice(el, amount, currency, assumed = false) {
   markedEls.add(el);
   el.classList.add("uce-price");
   el.dataset.uceAmount = String(amount);
   el.dataset.uceCurrency = currency;
+  if (assumed) el.dataset.uceAssumed = "1";
+  else delete el.dataset.uceAssumed;
   el.dataset.uceBound = "1";
 }
 
@@ -287,6 +292,7 @@ function unmarkOne(el) {
   el.classList.remove("uce-price", "uce-amazon-mark", "uce-split");
   delete el.dataset.uceAmount;
   delete el.dataset.uceCurrency;
+  delete el.dataset.uceAssumed;
   delete el.dataset.uceBound;
 }
 
@@ -347,7 +353,7 @@ function pruneRangesIn(root) {
   });
 }
 
-function addPriceRange(node, start, end, amount, currency) {
+function addPriceRange(node, start, end, amount, currency, assumed = false) {
   if (!node || start >= end) return;
   for (const existing of priceRanges) {
     if (
@@ -365,11 +371,11 @@ function addPriceRange(node, start, end, amount, currency) {
   } catch {
     return;
   }
-  priceRanges.push({ range, amount, currency });
+  priceRanges.push({ range, amount, currency, assumed });
   if (!highlightApi()) {
     const parent = node.parentElement;
     if (parent && parent.childNodes.length === 1 && start === 0 && end === (node.textContent || "").length) {
-      markPrice(parent, amount, currency);
+      markPrice(parent, amount, currency, assumed);
     }
   }
 }
@@ -469,7 +475,7 @@ function collectTextHits(node) {
   if (!parent || skipWalkEl(parent) || isStruckThrough(parent)) return;
   const text = node.textContent || "";
   const hits = UCE.findPrices(text, parseCtx());
-  for (const hit of hits) addPriceRange(node, hit.start, hit.end, hit.amount, hit.currency);
+  for (const hit of hits) addPriceRange(node, hit.start, hit.end, hit.amount, hit.currency, hit.assumed);
 }
 
 function walk(root) {
@@ -548,14 +554,14 @@ function elementIsSolePiece(el, raw) {
   return own === expected;
 }
 
-function markSplitPiece(textNode, markEl, raw, amount, currency) {
+function markSplitPiece(textNode, markEl, raw, amount, currency, assumed = false) {
   if (markEl && elementIsSolePiece(markEl, raw)) {
-    markPrice(markEl, amount, currency);
+    markPrice(markEl, amount, currency, assumed);
     markEl.classList.add("uce-split");
     return;
   }
   if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-    addPriceRange(textNode, 0, (textNode.textContent || "").length, amount, currency);
+    addPriceRange(textNode, 0, (textNode.textContent || "").length, amount, currency, assumed);
   }
 }
 
@@ -573,7 +579,7 @@ function fractionFromNextSibling(candidate) {
   return { raw: next.textContent, textNode: textNode || null, markEl: next, candidate: next };
 }
 
-function parsedAmountCandidate(candidate, currency) {
+function parsedAmountCandidate(candidate, currency, assumed) {
   const found = amountFromCandidate(candidate);
   if (!found || !found.markEl || isStruckThrough(found.markEl)) return null;
   let amountRaw = found.amount;
@@ -584,11 +590,11 @@ function parsedAmountCandidate(candidate, currency) {
     amountRaw = UCE.assembleWholeFraction(found.amount, fraction.raw);
   }
   const parsed = UCE.parsePriceString(`${currency} ${amountRaw}`, parseCtx());
-  return parsed ? { found, fraction, parsed } : null;
+  return parsed ? { found, fraction, parsed: { ...parsed, assumed } } : null;
 }
 
 function markParsedAmount(bound) {
-  markSplitPiece(bound.found.textNode, bound.found.markEl, bound.found.amount, bound.parsed.amount, bound.parsed.currency);
+  markSplitPiece(bound.found.textNode, bound.found.markEl, bound.found.amount, bound.parsed.amount, bound.parsed.currency, bound.parsed.assumed);
   if (bound.fraction) {
     markSplitPiece(
       bound.fraction.textNode,
@@ -596,11 +602,12 @@ function markParsedAmount(bound) {
       bound.fraction.raw,
       bound.parsed.amount,
       bound.parsed.currency,
+      bound.parsed.assumed,
     );
   }
 }
 
-function rangeBoundFromSibling(candidate, direction, currency) {
+function rangeBoundFromSibling(candidate, direction, currency, assumed) {
   const separator = skipEmptySiblings(candidate, direction);
   if (!separator || !UCE.isPriceRangeSeparator(separator.textContent || "")) return null;
   const separatorEl = separator.nodeType === Node.ELEMENT_NODE ? separator : separator.parentElement;
@@ -610,7 +617,7 @@ function rangeBoundFromSibling(candidate, direction, currency) {
   if (!boundCandidate) return null;
   const boundEl = boundCandidate.nodeType === Node.ELEMENT_NODE ? boundCandidate : boundCandidate.parentElement;
   if (boundEl?.closest(".uce-price") || isStruckThrough(boundCandidate)) return null;
-  return parsedAmountCandidate(boundCandidate, currency);
+  return parsedAmountCandidate(boundCandidate, currency, assumed);
 }
 
 function adjacentRangeAnchor(node, direction) {
@@ -646,14 +653,14 @@ function processInlineRangeSiblings(root) {
       if (!text.slice(hit.end).trim()) {
         const anchor = adjacentRangeAnchor(node, "next");
         if (anchor) {
-          const bound = rangeBoundFromSibling(anchor, "next", hit.currency);
+          const bound = rangeBoundFromSibling(anchor, "next", hit.currency, hit.assumed);
           if (bound) markParsedAmount(bound);
         }
       }
       if (!text.slice(0, hit.start).trim()) {
         const anchor = adjacentRangeAnchor(node, "prev");
         if (anchor) {
-          const bound = rangeBoundFromSibling(anchor, "prev", hit.currency);
+          const bound = rangeBoundFromSibling(anchor, "prev", hit.currency, hit.assumed);
           if (bound) markParsedAmount(bound);
         }
       }
@@ -715,9 +722,9 @@ function processSplitSiblings(root) {
       }
       const parsed = UCE.parsePriceString(`${node.textContent} ${amountRaw}`, parseCtx());
       if (!parsed) continue;
-      const rangeUpper = rangeBoundFromSibling(fraction?.candidate || candidate, "next", parsed.currency);
-      const rangeLower = rangeBoundFromSibling(candidate, "prev", parsed.currency);
-      markSplitPiece(node, currencyEl, node.textContent, parsed.amount, parsed.currency);
+      const rangeUpper = rangeBoundFromSibling(fraction?.candidate || candidate, "next", parsed.currency, parsed.assumed);
+      const rangeLower = rangeBoundFromSibling(candidate, "prev", parsed.currency, parsed.assumed);
+      markSplitPiece(node, currencyEl, node.textContent, parsed.amount, parsed.currency, parsed.assumed);
       markParsedAmount({ found, fraction, parsed });
       if (rangeUpper) markParsedAmount(rangeUpper);
       if (rangeLower) markParsedAmount(rangeLower);
@@ -785,7 +792,7 @@ function processAmazon(root) {
     const raw = amazonAssembled(priceEl) || offscreen || (vis && vis.textContent) || "";
     const parsed = UCE.parsePriceString(raw, parseCtx());
     if (!parsed) return;
-    markPrice(priceEl, parsed.amount, parsed.currency);
+    markPrice(priceEl, parsed.amount, parsed.currency, parsed.assumed);
     if (vis) vis.classList.add("uce-amazon-mark");
   });
 }
@@ -918,8 +925,8 @@ function rangeHitFromPoint(x, y) {
   return null;
 }
 
-function hoverUnchanged(key, amount, currency) {
-  return lastHover === key && hoverPayload?.amount === amount && hoverPayload?.currency === currency;
+function hoverUnchanged(key, amount, currency, assumed) {
+  return lastHover === key && hoverPayload?.amount === amount && hoverPayload?.currency === currency && hoverPayload?.assumed === assumed;
 }
 
 function updateHover(x, y, target) {
@@ -928,14 +935,15 @@ function updateHover(x, y, target) {
   if (el) {
     const amount = Number(el.dataset.uceAmount);
     const currency = el.dataset.uceCurrency;
-    if (hoverUnchanged(el, amount, currency)) return;
-    showPriceTooltip(amount, currency, () => el.getBoundingClientRect(), el);
+    const assumed = el.dataset.uceAssumed === "1";
+    if (hoverUnchanged(el, amount, currency, assumed)) return;
+    showPriceTooltip(amount, currency, assumed, () => el.getBoundingClientRect(), el);
     return;
   }
   const item = rangeHitFromPoint(x, y);
   if (item) {
-    if (hoverUnchanged(item.range, item.amount, item.currency)) return;
-    showPriceTooltip(item.amount, item.currency, () => item.range.getBoundingClientRect(), item.range);
+    if (hoverUnchanged(item.range, item.amount, item.currency, item.assumed)) return;
+    showPriceTooltip(item.amount, item.currency, item.assumed, () => item.range.getBoundingClientRect(), item.range);
     return;
   }
   hideTooltip();
@@ -945,7 +953,7 @@ function onPointerOver(event) {
   if (Date.now() < pinUntil) return;
   const el = priceElFromTarget(event.target);
   if (!el || lastHover === el) return;
-  showPriceTooltip(Number(el.dataset.uceAmount), el.dataset.uceCurrency, () => el.getBoundingClientRect(), el);
+  showPriceTooltip(Number(el.dataset.uceAmount), el.dataset.uceCurrency, el.dataset.uceAssumed === "1", () => el.getBoundingClientRect(), el);
 }
 
 function onPointerOut(event) {
@@ -972,7 +980,7 @@ function onPointerMove(event) {
 function onFocusIn(event) {
   const el = priceElFromTarget(event.target);
   if (!el) return;
-  showPriceTooltip(Number(el.dataset.uceAmount), el.dataset.uceCurrency, () => el.getBoundingClientRect(), el);
+  showPriceTooltip(Number(el.dataset.uceAmount), el.dataset.uceCurrency, el.dataset.uceAssumed === "1", () => el.getBoundingClientRect(), el);
 }
 
 function onFocusOut(event) {
@@ -1086,6 +1094,7 @@ async function requestState() {
       yenOverrides: {},
       pausedHosts: [],
       fx: null,
+      siteConfig: null,
     });
     return {
       state: {
@@ -1096,6 +1105,7 @@ async function requestState() {
         yenOverrides: stored.yenOverrides || {},
         pausedHosts: stored.pausedHosts || [],
         fx: stored.fx || null,
+        siteConfig: stored.siteConfig || null,
       },
     };
   } catch {
@@ -1120,7 +1130,7 @@ async function handleConvertSelection(raw) {
     pinTooltip(4000);
     return;
   }
-  const text = conversionText(parsed.amount, parsed.currency);
+  const text = conversionText(parsed.amount, parsed.currency, parsed.assumed);
   showTooltipAtRect(rect, text || chrome.i18n.getMessage("tipFxNeeded"));
   pinTooltip(4000);
 }
@@ -1140,7 +1150,7 @@ async function handleStorageChange(changes) {
     return;
   }
 
-  if (changes.defaultDollar || changes.overrides || changes.defaultYen || changes.yenOverrides) {
+  if (changes.defaultDollar || changes.overrides || changes.defaultYen || changes.yenOverrides || changes.siteConfig) {
     stopObserver();
     clearHighlights();
     unmarkElements();
