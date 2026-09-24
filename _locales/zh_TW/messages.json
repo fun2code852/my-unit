@@ -172,6 +172,10 @@
   "tipFxNeeded": {
     "message": "需要匯率才能換算"
   },
+  "tipAssumedCurrency": {
+    "message": "以 $CURRENCY$ 換算",
+    "placeholders": { "currency": { "content": "$1" } }
+  },
   "tipSaveUnitFirst": {
     "message": "請先在 My Unit 儲存單位"
   },

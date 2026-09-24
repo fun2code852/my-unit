@@ -59,20 +59,21 @@ function fillSelect(select, codes, blank) {
 }
 
 function autoDollar() {
-  return UCE.resolveDollar(currentHost, state?.defaultDollar, {}, pageDollar);
+  return UCE.resolveDollar(currentHost, state?.defaultDollar, {}, pageDollar, state?.siteConfig?.sites);
 }
 
 function autoYen() {
-  return UCE.resolveYen(currentHost, state?.defaultYen, {}, pageYen);
+  return UCE.resolveYen(currentHost, state?.defaultYen, {}, pageYen, state?.siteConfig?.sites);
 }
 
 function paintSymbolSettings() {
   const dollarOverrides = state.overrides || {};
   const yenOverrides = state.yenOverrides || {};
-  const resolvedDollar = UCE.resolveDollar(currentHost, state.defaultDollar, dollarOverrides, pageDollar);
-  const resolvedYen = UCE.resolveYen(currentHost, state.defaultYen, yenOverrides, pageYen);
-  const autoDollarCode = UCE.resolveDollar(currentHost, state.defaultDollar, {}, pageDollar);
-  const autoYenCode = UCE.resolveYen(currentHost, state.defaultYen, {}, pageYen);
+  const configSites = state.siteConfig?.sites || {};
+  const resolvedDollar = UCE.resolveDollar(currentHost, state.defaultDollar, dollarOverrides, pageDollar, configSites);
+  const resolvedYen = UCE.resolveYen(currentHost, state.defaultYen, yenOverrides, pageYen, configSites);
+  const autoDollarCode = UCE.resolveDollar(currentHost, state.defaultDollar, {}, pageDollar, configSites);
+  const autoYenCode = UCE.resolveYen(currentHost, state.defaultYen, {}, pageYen, configSites);
 
   siteHost.textContent = currentHost || chrome.i18n.getMessage("openPageFirst");
   siteDollar.value = resolvedDollar;

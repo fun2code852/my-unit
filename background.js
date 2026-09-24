@@ -6,8 +6,12 @@ const YAHOO_HOSTS = [
   "https://query2.finance.yahoo.com/v8/finance/chart/",
 ];
 const FX_URL = "https://api.frankfurter.dev/v1/latest?from=USD";
+const SITE_CONFIG_URL = "https://fun2code852.github.io/my-unit-config/site-currencies.json";
 const YAHOO_ALARM = "uce-yahoo";
 const FX_ALARM = "uce-fx";
+const SITE_CONFIG_ALARM = "uce-site-config";
+const SITE_CONFIG_TTL = 60 * 60 * 1000;
+const SITE_CONFIG_MAX_BYTES = 256 * 1024;
 const SCRIPT_ID = "uce";
 const PAGE_ORIGINS = ["http://*/*", "https://*/*"];
 const CONTENT_JS = ["lib/currencies.js", "lib/parse.js", "lib/convert.js", "content.js"];
@@ -21,7 +25,17 @@ const DEFAULT_STATE = {
   yenOverrides: {},
   pausedHosts: [],
   fx: null,
+  siteConfig: null,
+  siteConfigCheckedAt: null,
 };
+
+function safeSiteConfig(value) {
+  try {
+    return UCE.normalizeSiteConfig(value, Number(value?.fetchedAt));
+  } catch {
+    return null;
+  }
+}
 
 async function getState() {
   const stored = await chrome.storage.local.get(DEFAULT_STATE);
@@ -33,11 +47,55 @@ async function getState() {
     yenOverrides: stored.yenOverrides || {},
     pausedHosts: stored.pausedHosts || [],
     fx: stored.fx || null,
+    siteConfig: safeSiteConfig(stored.siteConfig),
   };
 }
 
 async function savePartial(patch) {
   await chrome.storage.local.set(patch);
+}
+
+let siteConfigFetch = null;
+
+async function fetchSiteConfig() {
+  const checkedAt = Date.now();
+  try {
+    const res = await fetch(SITE_CONFIG_URL, {
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+    });
+    if (!res.ok) throw new Error(`Site config HTTP ${res.status}`);
+    const text = await res.text();
+    if (text.length > SITE_CONFIG_MAX_BYTES) throw new Error("Site config too large");
+    const siteConfig = UCE.normalizeSiteConfig(JSON.parse(text), checkedAt);
+    await savePartial({ siteConfig, siteConfigCheckedAt: checkedAt });
+    return siteConfig;
+  } catch (err) {
+    await savePartial({ siteConfigCheckedAt: checkedAt });
+    throw err;
+  }
+}
+
+async function refreshSiteConfig() {
+  if (siteConfigFetch) return siteConfigFetch;
+  siteConfigFetch = fetchSiteConfig().finally(() => {
+    siteConfigFetch = null;
+  });
+  return siteConfigFetch;
+}
+
+async function ensureSiteConfig() {
+  const stored = await chrome.storage.local.get({ siteConfig: null, siteConfigCheckedAt: null });
+  const current = safeSiteConfig(stored.siteConfig);
+  const checkedAt = Number(stored.siteConfigCheckedAt) || Number(current?.fetchedAt) || 0;
+  if (checkedAt && Date.now() - checkedAt < SITE_CONFIG_TTL) return current;
+  try {
+    return await refreshSiteConfig();
+  } catch (err) {
+    console.warn("UCE site config fetch failed", err);
+    return current;
+  }
 }
 
 function unitReady(unit) {
@@ -178,6 +236,10 @@ async function ensureFx() {
 
 async function syncAlarms() {
   chrome.alarms.create(FX_ALARM, { periodInMinutes: 60 * 12 });
+  const siteConfigAlarm = await chrome.alarms.get(SITE_CONFIG_ALARM);
+  if (!siteConfigAlarm || siteConfigAlarm.periodInMinutes !== 60) {
+    chrome.alarms.create(SITE_CONFIG_ALARM, { periodInMinutes: 60 });
+  }
   const state = await getState();
   if (state.unit?.type === "yahoo" && state.unit.symbol) {
     chrome.alarms.create(YAHOO_ALARM, { periodInMinutes: 15 });
@@ -325,18 +387,21 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!state.defaultYen) await savePartial({ defaultYen: UCE.DEFAULT_YEN_CURRENCY });
   await syncAlarms();
   ensureFx();
+  ensureSiteConfig();
   ensureContextMenu();
   syncContentScripts();
 });
 
 syncAlarms();
 ensureFx();
+ensureSiteConfig();
 ensureContextMenu();
 syncContentScripts();
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === YAHOO_ALARM) refreshYahooIfNeeded();
   if (alarm.name === FX_ALARM) refreshFx().catch(() => {});
+  if (alarm.name === SITE_CONFIG_ALARM) ensureSiteConfig().catch(() => {});
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -384,6 +449,7 @@ async function handleMessage(message) {
   const action = message?.action;
   if (action === "getState") {
     ensureFx();
+    ensureSiteConfig();
     return { state: await getState() };
   }
   if (action === "syncInject") {

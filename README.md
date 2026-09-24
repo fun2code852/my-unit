@@ -13,10 +13,11 @@ Hover an underlined price, or select one and right-click **Convert**. The origin
 - Matches amounts that already include a currency signal (`HK$310.00`, `$ 43.00`, `HKD 78.37`). Bare numbers are ignored.
 - Custom item, Yahoo ticker, or ISO currency as the single unit.
 - Per-site `$` and `¥` overrides, and a pause toggle, in the popup.
+- Remotely maintained site hints for ambiguous `$` and `¥`, checked automatically about once per hour.
 - Optional website access: underline prices only on sites you allow. Right-click Convert still works on the current tab without that grant.
 - English and Traditional Chinese UI (`en`, `zh-HK`, `zh-TW`), following Chrome’s language. Simplified Chinese falls back to English.
 
-Unmarked `$` and `¥` follow marked prices on the page when those marks agree (for example US$ or HK$). Otherwise `$` is HKD. A per-site `$` or `¥` in the popup wins over that guess, and applies to other dollar-style or yen-style prices on that site. FX uses [Frankfurter](https://frankfurter.dev) (ECB daily rates); currencies the ECB omits (such as TWD) fall back to Yahoo. Live tickers poll Yahoo’s unofficial chart API about every 15 minutes. Quotes can be delayed or break; custom units still work if Yahoo is down. Nothing from the page is uploaded.
+Unmarked `$` and `¥` follow marked prices on the page when those marks agree (for example US$ or HK$). Otherwise My Unit checks its [remote site hints](https://fun2code852.github.io/my-unit-config/site-currencies.json), then the country TLD for yen, then your global defaults (`$` is HKD and `¥` is JPY initially). A per-site `$` or `¥` selection in the popup wins over every automatic hint. Remote hints are checked about once per hour and the last good copy remains available if a check fails. FX uses [Frankfurter](https://frankfurter.dev) (ECB daily rates); currencies the ECB omits (such as TWD) fall back to Yahoo. Live tickers poll Yahoo’s unofficial chart API about every 15 minutes. Quotes can be delayed or break; custom units still work if Yahoo is down. Nothing from the page is uploaded.
 
 Amazon list / “was” prices and CSS `line-through` amounts are skipped. Amazon `.a-price` widgets are handled the same way as [Opportunity Cost](https://github.com/TFTC-Holdings-Inc/opportunity-cost) (reimplemented, not copied).
 
@@ -44,7 +45,7 @@ Vanilla Manifest V3. No bundler.
 
 | Path | Role |
 | --- | --- |
-| `background.js` | Service worker: storage, FX, Yahoo, injection, context menu |
+| `background.js` | Service worker: storage, remote site hints, FX, Yahoo, injection, context menu |
 | `content.js` / `content.css` | Price scan, underline, tooltip |
 | `popup.*` | Settings UI |
 | `lib/` | Shared parse / convert / currency lists |
